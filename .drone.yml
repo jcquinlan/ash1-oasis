@@ -1,0 +1,44 @@
+kind: pipeline
+type: docker
+name: build-and-deploy
+
+trigger:
+  branch:
+    - main
+    - master
+  event:
+    - push
+
+steps:
+  - name: build-oasis-web
+    image: oven/bun:1
+    commands:
+      - cd oasis-web
+      - bun install --frozen-lockfile
+      - bun run build
+
+  - name: build-oasis-api
+    image: oven/bun:1
+    commands:
+      - cd oasis-api
+      - bun install --frozen-lockfile
+
+  - name: deploy
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: deploy_host
+      username:
+        from_secret: deploy_user
+      key:
+        from_secret: deploy_key
+      port: 22
+      script:
+        - cd /opt/ash1-oasis
+        - git pull origin main
+        - docker compose -f docker-compose.prod.yml build
+        - docker compose -f docker-compose.prod.yml up -d
+        - docker system prune -f
+    depends_on:
+      - build-oasis-web
+      - build-oasis-api
