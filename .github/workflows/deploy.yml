@@ -20,6 +20,8 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           docker compose -f docker-compose.prod.yml down || true
+          # Stop any containers using our ports
+          docker rm -f frontend-web-1 frontend-api-1 || true
 
       - name: Deploy with Docker Compose
         run: |
