@@ -16,6 +16,11 @@ jobs:
       - name: Copy environment file
         run: cp /home/james/.config/oasis/.env ${{ github.workspace }}/.env
 
+      - name: Stop existing containers
+        run: |
+          cd ${{ github.workspace }}
+          docker compose -f docker-compose.prod.yml down || true
+
       - name: Deploy with Docker Compose
         run: |
           cd ${{ github.workspace }}
