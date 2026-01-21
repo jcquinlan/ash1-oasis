@@ -9,18 +9,12 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-# Production stage
-FROM oven/bun:1-alpine
+# Production stage - serve static files with nginx
+FROM nginx:alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production
-
-COPY --from=builder /app/dist ./dist
-COPY vite.config.ts ./
-
-ENV PORT=3000
 EXPOSE 3000
 
-CMD ["bun", "run", "preview", "--host", "0.0.0.0"]
+CMD ["nginx", "-g", "daemon off;"]
