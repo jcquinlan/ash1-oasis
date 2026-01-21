@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Copy environment file
-        run: cp ~/.config/oasis/.env ${{ github.workspace }}/.env
+        run: cp /home/james/.config/oasis/.env ${{ github.workspace }}/.env
 
       - name: Deploy with Docker Compose
         run: |
