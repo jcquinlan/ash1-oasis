@@ -57,3 +57,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  github-runner:
+    container_name: github-runner
+    image: myoung34/github-runner:latest
+    restart: always
+    network_mode: host
+    environment:
+      - REPO_URL=https://github.com/jcquinlan/ash1-oasis
+      - RUNNER_NAME=oasis-runner
+      - RUNNER_TOKEN=${RUNNER_TOKEN}
+      - RUNNER_WORKDIR=/actions-runner/_work
+      - LABELS=self-hosted,linux,ash1
+      - DISABLE_AUTO_UPDATE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner-data:/actions-runner
+      - /home/james/.config/oasis:/home/james/.config/oasis:ro
+    security_opt:
+      - label:disable
+
+volumes:
+  runner-data:
