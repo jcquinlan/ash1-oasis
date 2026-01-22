@@ -1,259 +1,208 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap');
+/* ═══════════════════════════════════════════════════════════════════════════
+   ash1 oasis — Pastel Terminal Design System
+   An Arch Linux power user's dream: warm pastels meet terminal precision
+   ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
-  --bg-deep: #0a0a0f;
-  --bg-card: #12121a;
-  --border: #1e1e2e;
-  --text-primary: #e4e4e7;
-  --text-muted: #71717a;
-  --accent: #22d3ee;
-  --accent-glow: rgba(34, 211, 238, 0.15);
-  --success: #4ade80;
+  /* Typography */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Menlo', 'Consolas', monospace;
+
+  /* Spacing Scale (8px base) */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.5rem;    /* 24px */
+  --space-6: 2rem;      /* 32px */
+  --space-7: 2.5rem;    /* 40px */
+  --space-8: 3rem;      /* 48px */
+  --space-9: 4rem;      /* 64px */
+
+  /* Type Scale */
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.75rem;     /* 12px */
+  --text-base: 0.8125rem; /* 13px */
+  --text-lg: 0.9375rem;   /* 15px */
+  --text-xl: 1.125rem;    /* 18px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 2rem;       /* 32px */
+  --text-4xl: 3rem;       /* 48px */
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+  /* Transitions */
+  --transition-fast: 100ms ease;
+  --transition-base: 150ms ease;
+  --transition-slow: 250ms ease;
+
+  /* Border Radius */
+  --radius-none: 0;
+  --radius-sm: 3px;
+  --radius-base: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
-* {
+/* ─── Pastel Color Palette — Warm Terminal Aesthetic ───────────────────────── */
+/* Inspired by Catppuccin Latte with Arch Linux blue heritage */
+:root {
+  /* Background Layers — Warm Cream Base */
+  --bg-base: #faf8f5;           /* Warm cream */
+  --bg-elevated: #ffffff;        /* Pure white for cards */
+  --bg-surface: #f5f2ed;         /* Soft beige surface */
+  --bg-muted: #efe9e1;           /* Muted warm gray */
+  --bg-subtle: #e8e0d5;          /* Subtle warm accent */
+
+  /* Foreground — Rich but not harsh */
+  --fg-base: #4c4f69;            /* Soft charcoal (Catppuccin text) */
+  --fg-muted: #6c6f85;           /* Muted text */
+  --fg-subtle: #8c8fa1;          /* Subtle text */
+  --fg-faint: #acb0be;           /* Faint text */
+
+  /* Border — Soft definition */
+  --border-base: #e6e0d6;        /* Warm border */
+  --border-muted: #dcd4c8;       /* Slightly darker */
+  --border-subtle: #cdc4b5;      /* Subtle accent border */
+  --border-accent: #bbb5a8;      /* Stronger definition */
+
+  /* ─── Pastel Accent Colors — Playful yet Professional ───────────────────── */
+
+  /* Mint Green — Success/Running (soft and inviting) */
+  --accent-mint: #40a02b;        /* Catppuccin green */
+  --accent-mint-soft: #a6e3a1;   /* Soft mint */
+  --accent-mint-bg: #e8f5e4;     /* Mint background */
+  --accent-mint-glow: rgba(64, 160, 43, 0.15);
+
+  /* Soft Coral — Error/Stopped (warm, not aggressive) */
+  --accent-coral: #e64553;       /* Catppuccin red/maroon blend */
+  --accent-coral-soft: #f5b8bb;  /* Soft coral */
+  --accent-coral-bg: #fce8e9;    /* Coral background */
+  --accent-coral-glow: rgba(230, 69, 83, 0.15);
+
+  /* Peach — Warning (warm and friendly) */
+  --accent-peach: #fe640b;       /* Catppuccin peach */
+  --accent-peach-soft: #f9c6a3;  /* Soft peach */
+  --accent-peach-bg: #fef0e4;    /* Peach background */
+  --accent-peach-glow: rgba(254, 100, 11, 0.15);
+
+  /* Arch Blue — Primary accent (heritage nod) */
+  --accent-blue: #1793d1;        /* Classic Arch blue */
+  --accent-blue-soft: #89dceb;   /* Soft sky blue */
+  --accent-blue-bg: #e5f4fb;     /* Blue background */
+  --accent-blue-glow: rgba(23, 147, 209, 0.15);
+
+  /* Lavender — Highlight/Special (playful warmth) */
+  --accent-lavender: #8839ef;    /* Catppuccin mauve */
+  --accent-lavender-soft: #cba6f7; /* Soft lavender */
+  --accent-lavender-bg: #f3ebfc; /* Lavender background */
+  --accent-lavender-glow: rgba(136, 57, 239, 0.15);
+
+  /* Pink — Accent detail */
+  --accent-pink: #ea76cb;        /* Catppuccin pink */
+  --accent-pink-soft: #f5c2e7;   /* Soft pink */
+  --accent-pink-bg: #fceef8;     /* Pink background */
+
+  /* Sky — Info/Cyan replacement */
+  --accent-sky: #04a5e5;         /* Catppuccin sapphire */
+  --accent-sky-soft: #99d1db;    /* Soft sky */
+  --accent-sky-bg: #e5f6fa;      /* Sky background */
+
+  /* Terminal Box Drawing — Decorative */
+  --box-corner: '+';
+  --box-horizontal: '-';
+  --box-vertical: '|';
+}
+
+/* ─── Base Reset ────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 body {
-  font-family: 'Outfit', system-ui, sans-serif;
-  background: var(--bg-deep);
-  color: var(--text-primary);
-  min-height: 100vh;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(139, 92, 246, 0.08), transparent);
-  pointer-events: none;
-}
-
-.container {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  position: relative;
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 3rem 4rem;
-  text-align: center;
-  position: relative;
-  backdrop-filter: blur(20px);
-  animation: fadeIn 0.6s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  background: var(--success);
-  border-radius: 50%;
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  box-shadow: 0 0 12px var(--success);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-h1 {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 2.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  color: var(--text-muted);
-  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
   font-weight: 400;
-  margin-bottom: 2.5rem;
+  line-height: var(--leading-relaxed);
+  letter-spacing: var(--tracking-normal);
+  color: var(--fg-base);
+  background: var(--bg-base);
+  font-feature-settings: 'tnum' on, 'lnum' on, 'zero' on, 'ss01' on;
+  font-variant-numeric: tabular-nums lining-nums slashed-zero;
 }
 
-.time-display {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 2.5rem;
+/* ─── Selection — Lavender highlight ───────────────────────────────────────── */
+::selection {
+  background: var(--accent-lavender-soft);
+  color: var(--fg-base);
 }
 
-.time {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 3rem;
-  font-weight: 500;
-  color: var(--accent);
-  letter-spacing: 0.05em;
+::-moz-selection {
+  background: var(--accent-lavender-soft);
+  color: var(--fg-base);
 }
 
-.date {
-  color: var(--text-muted);
-  font-size: 0.875rem;
+/* ─── Focus States — Arch blue ring ────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-.services {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: center;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+/* ─── Scrollbar — Pastel styled ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.service {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+  border-radius: var(--radius-base);
 }
 
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: var(--radius-base);
+  border: 2px solid var(--bg-surface);
 }
 
-.dot.active {
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-accent);
 }
 
-.dot.inactive {
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-}
-
-.system-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  padding: 1.5rem 0;
-  border-top: 1px solid var(--border);
-  margin-bottom: 1.5rem;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-}
-
-.stat-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-
-.containers {
-  border-top: 1px solid var(--border);
-  padding-top: 1.5rem;
-}
-
-.containers h2 {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-  font-weight: 500;
-}
-
-.container-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.container-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-
-.container-name {
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--text-primary);
-  flex: 1;
-  text-align: left;
-}
-
-.container-status {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-footer {
+/* ─── Utilities ─────────────────────────────────────────────────────────────── */
+.visually-hidden {
   position: absolute;
-  bottom: 2rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-family: 'JetBrains Mono', monospace;
-  opacity: 0.6;
-}
-
-@media (max-width: 600px) {
-  .card {
-    padding: 1.5rem;
-  }
-  
-  h1 {
-    font-size: 1.75rem;
-  }
-  
-  .time {
-    font-size: 2rem;
-  }
-  
-  .services {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .system-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

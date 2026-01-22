@@ -1,0 +1,215 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   App Layout — Pastel Terminal Grid System
+   Warm cream canvas with precise Swiss alignment
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  position: relative;
+}
+
+/* ─── Subtle Dotted Grid Pattern — Softer than lines ───────────────────────── */
+.app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, var(--border-muted) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Main Container ────────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-9) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Header — Clean with Arch Blue accent ──────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-base);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}
+
+.title::before {
+  content: '> ';
+  color: var(--accent-blue);
+  font-weight: 400;
+}
+
+/* ─── Time Display — Hero element with soft glow ────────────────────────────── */
+.timeCard {
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-base);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.time {
+  display: block;
+  font-size: var(--text-4xl);
+  font-weight: 300;
+  color: var(--fg-base);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+/* Subtle lavender glow effect on time — playful touch */
+.time::after {
+  content: attr(data-time);
+  position: absolute;
+  inset: 0;
+  color: var(--accent-lavender);
+  opacity: 0;
+  filter: blur(24px);
+  animation: timeGlow 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes timeGlow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.2; }
+}
+
+.date {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--fg-subtle);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ─── Section Title — Terminal comment style ───────────────────────────────── */
+.sectionTitle {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sectionTitle::before {
+  content: '#';
+  color: var(--accent-pink);
+  font-weight: 400;
+}
+
+.sectionTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-muted) 0%, transparent 100%);
+}
+
+/* ─── Stats Grid — Precise 4-column layout ──────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+/* ─── Container List — Stacked cards with separator ─────────────────────────── */
+.containerList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border-base);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.containerName {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-base);
+  letter-spacing: var(--tracking-normal);
+}
+
+.containerName::before {
+  content: '$ ';
+  color: var(--accent-blue);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* ─── Footer — Subtle comment style ─────────────────────────────────────────── */
+.footer {
+  padding: var(--space-6) var(--space-6);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  letter-spacing: var(--tracking-wider);
+  border-top: 1px solid var(--border-base);
+  position: relative;
+  z-index: 1;
+}
+
+.footer::before {
+  content: '// ';
+  color: var(--accent-mint);
+  opacity: 0.6;
+}
+
+/* ─── Responsive — Mobile adaptations ───────────────────────────────────────── */
+@media (max-width: 640px) {
+  .main {
+    padding: var(--space-6) var(--space-4);
+    gap: var(--space-5);
+  }
+
+  .time {
+    font-size: var(--text-3xl);
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+}
