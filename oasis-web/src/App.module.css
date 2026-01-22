@@ -1,0 +1,126 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+}
+
+.main {
+  flex: 1;
+  max-width: 48rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.025em;
+}
+
+.timeCard {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.time {
+  display: block;
+  font-size: 4rem;
+  font-weight: 300;
+  color: #111827;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.date {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 1.5rem;
+}
+
+.containerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.containerName {
+  font-weight: 500;
+  color: #111827;
+  font-size: 0.875rem;
+}
+
+.footer {
+  padding: 2rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app {
+    background: #0f172a;
+  }
+
+  .title {
+    color: #f9fafb;
+  }
+
+  .time {
+    color: #f9fafb;
+  }
+
+  .date {
+    color: #9ca3af;
+  }
+
+  .sectionTitle {
+    color: #9ca3af;
+  }
+
+  .containerName {
+    color: #f9fafb;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 2rem 1rem;
+  }
+
+  .time {
+    font-size: 3rem;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

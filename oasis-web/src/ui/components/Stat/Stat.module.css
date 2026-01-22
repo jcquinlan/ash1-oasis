@@ -1,0 +1,28 @@
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: #9ca3af;
+  }
+
+  .value {
+    color: #f9fafb;
+  }
+}

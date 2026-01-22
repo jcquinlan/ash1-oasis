@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { Card, Badge, ContainerItem, Stat } from './ui'
+import styles from './App.module.css'
 
 interface Container {
   id: string
@@ -55,63 +57,63 @@ function App() {
   const runningCount = containers.filter((c) => c.state === 'running').length
 
   return (
-    <div className="container">
-      <div className="card">
-        <div className="status-indicator" />
-        <h1>ash1 oasis</h1>
-        <p className="subtitle">
-          {error ? error : `${runningCount} container${runningCount !== 1 ? 's' : ''} running`}
-        </p>
-        <div className="time-display">
-          <span className="time">{time.toLocaleTimeString()}</span>
-          <span className="date">
-            {time.toLocaleDateString(undefined, {
+    <div className={styles.app}>
+      <main className={styles.main}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>ash1 oasis</h1>
+          <Badge variant={error ? 'error' : 'success'}>
+            {error ? error : `${runningCount} running`}
+          </Badge>
+        </header>
+
+        <Card className={styles.timeCard}>
+          <time className={styles.time}>
+            {time.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            })}
+          </time>
+          <p className={styles.date}>
+            {time.toLocaleDateString('en-US', {
               weekday: 'long',
-              year: 'numeric',
               month: 'long',
               day: 'numeric',
             })}
-          </span>
-        </div>
+          </p>
+        </Card>
 
         {system && (
-          <div className="system-stats">
-            <div className="stat">
-              <span className="stat-label">Uptime</span>
-              <span className="stat-value">{system.uptime}</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Memory</span>
-              <span className="stat-value">{system.memory.percent}%</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Load</span>
-              <span className="stat-value">{system.load}</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Disk</span>
-              <span className="stat-value">{system.disk.percent}</span>
-            </div>
-          </div>
+          <Card>
+            <h2 className={styles.sectionTitle}>System</h2>
+            <dl className={styles.stats}>
+              <Stat label="Uptime" value={system.uptime} />
+              <Stat label="Memory" value={`${system.memory.percent}%`} />
+              <Stat label="Load" value={system.load} />
+              <Stat label="Disk" value={system.disk.percent} />
+            </dl>
+          </Card>
         )}
 
         {containers.length > 0 && (
-          <div className="containers">
-            <h2>Containers</h2>
-            <div className="container-list">
+          <Card>
+            <h2 className={styles.sectionTitle}>Containers</h2>
+            <div className={styles.containerList}>
               {containers.map((c) => (
-                <div key={c.id} className="container-item">
-                  <span className={`dot ${c.state === 'running' ? 'active' : 'inactive'}`} />
-                  <span className="container-name">{c.name}</span>
-                  <span className="container-status">{c.status}</span>
-                </div>
+                <ContainerItem key={c.id}>
+                  <span className={styles.containerName}>{c.name}</span>
+                  <Badge variant={c.state === 'running' ? 'success' : 'error'}>
+                    {c.status}
+                  </Badge>
+                </ContainerItem>
               ))}
             </div>
-          </div>
+          </Card>
         )}
-      </div>
-      <footer>
-        <span>jamescq.com</span>
+      </main>
+
+      <footer className={styles.footer}>
+        jamescq.com
       </footer>
     </div>
   )

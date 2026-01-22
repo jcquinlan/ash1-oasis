@@ -1,23 +1,26 @@
-services:
-  github-runner:
-    container_name: github-runner
-    image: myoung34/github-runner:latest
-    restart: always
-    network_mode: host
-    environment:
-      - REPO_URL=https://github.com/jcquinlan/ash1-oasis
-      - RUNNER_NAME=oasis-runner
-      - RUNNER_TOKEN=${RUNNER_TOKEN}
-      - RUNNER_WORKDIR=/tmp/github-runner
-      - LABELS=self-hosted,linux,ash1
-      - EPHEMERAL=false
-      - DISABLE_AUTO_UPDATE=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner-work:/tmp/github-runner
-      - /home/james/.config/oasis:/home/james/.config/oasis:ro
-    security_opt:
-      - label:disable
+# GitHub Runner Service
+# This service is only needed in production for CI/CD
+# Not required for local development
 
-volumes:
-  runner-work:
+# services:
+#   github-runner:
+#     container_name: github-runner
+#     image: myoung34/github-runner:latest
+#     restart: always
+#     network_mode: host
+#     environment:
+#       - REPO_URL=https://github.com/jcquinlan/ash1-oasis
+#       - RUNNER_NAME=oasis-runner
+#       - RUNNER_TOKEN=${RUNNER_TOKEN}
+#       - RUNNER_WORKDIR=/actions-runner/_work
+#       - LABELS=self-hosted,linux,ash1
+#       - DISABLE_AUTO_UPDATE=true
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock
+#       - runner-data:/actions-runner
+#       - /home/james/.config/oasis:/home/james/.config/oasis:ro
+#     security_opt:
+#       - label:disable
+
+# volumes:
+#   runner-data:
