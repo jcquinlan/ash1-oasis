@@ -1,27 +1,72 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Container Item — Pastel Terminal Process List Style
+   Clean rows with warm hover states and Arch blue accents
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .containerItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 1px solid #f3f4f6;
-  background: #fafafa;
-  transition: all 0.15s ease;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast);
+  position: relative;
 }
 
+/* ─── Left Border Accent — Arch Blue on Hover ──────────────────────────────── */
+.containerItem::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition:
+    background var(--transition-fast),
+    opacity var(--transition-fast);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* ─── Hover State — Warm surface with blue accent ──────────────────────────── */
 .containerItem:hover {
-  border-color: #e5e7eb;
-  background: white;
+  background: var(--bg-surface);
 }
 
-@media (prefers-color-scheme: dark) {
-  .containerItem {
-    background: #111827;
-    border-color: #374151;
-  }
+.containerItem:hover::before {
+  background: var(--accent-blue);
+  opacity: 0.8;
+}
 
-  .containerItem:hover {
-    background: #1f2937;
-    border-color: #4b5563;
-  }
+/* ─── First/Last Item Radius — Clean corners ───────────────────────────────── */
+.containerItem:first-child {
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+.containerItem:first-child::before {
+  border-top-left-radius: var(--radius-lg);
+}
+
+.containerItem:last-child {
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.containerItem:last-child::before {
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+/* ─── Row Index — Subtle line numbers (optional) ───────────────────────────── */
+.containerItem[data-index]::after {
+  content: attr(data-index);
+  position: absolute;
+  left: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.5;
 }

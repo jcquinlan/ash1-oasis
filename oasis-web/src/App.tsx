@@ -56,30 +56,38 @@ function App() {
 
   const runningCount = containers.filter((c) => c.state === 'running').length
 
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  }
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    })
+  }
+
   return (
     <div className={styles.app}>
       <main className={styles.main}>
         <header className={styles.header}>
           <h1 className={styles.title}>ash1 oasis</h1>
           <Badge variant={error ? 'error' : 'success'}>
-            {error ? error : `${runningCount} running`}
+            {error ? 'offline' : `${runningCount} active`}
           </Badge>
         </header>
 
         <Card className={styles.timeCard}>
-          <time className={styles.time}>
-            {time.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            })}
+          <time className={styles.time} data-time={formatTime(time)}>
+            {formatTime(time)}
           </time>
           <p className={styles.date}>
-            {time.toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
+            {formatDate(time)}
           </p>
         </Card>
 
@@ -103,7 +111,7 @@ function App() {
                 <ContainerItem key={c.id}>
                   <span className={styles.containerName}>{c.name}</span>
                   <Badge variant={c.state === 'running' ? 'success' : 'error'}>
-                    {c.status}
+                    {c.state === 'running' ? 'running' : 'stopped'}
                   </Badge>
                 </ContainerItem>
               ))}

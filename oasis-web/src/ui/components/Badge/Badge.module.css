@@ -1,76 +1,116 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Badge Component — Pastel Terminal Status Indicator
+   Soft, friendly status colors that still communicate clearly
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-base);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
+/* ─── Status Indicator Dot — Soft glow effect ──────────────────────────────── */
 .badge::before {
   content: '';
   display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
+/* ─── Default Variant — Neutral warm gray ──────────────────────────────────── */
 .default {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--bg-muted);
+  color: var(--fg-subtle);
+  border-color: var(--border-base);
 }
 
 .default::before {
-  background: #9ca3af;
+  background: var(--fg-faint);
 }
 
+/* ─── Success Variant — Soft Mint Green ────────────────────────────────────── */
 .success {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--accent-mint-bg);
+  color: var(--accent-mint);
+  border-color: var(--accent-mint-soft);
 }
 
 .success::before {
-  background: #22c55e;
+  background: var(--accent-mint);
+  box-shadow: 0 0 8px var(--accent-mint-glow);
+  animation: mintPulse 2.5s ease-in-out infinite;
 }
 
+/* ─── Error Variant — Soft Coral ───────────────────────────────────────────── */
 .error {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--accent-coral-bg);
+  color: var(--accent-coral);
+  border-color: var(--accent-coral-soft);
 }
 
 .error::before {
-  background: #ef4444;
+  background: var(--accent-coral);
+  box-shadow: 0 0 8px var(--accent-coral-glow);
+  animation: coralPulse 2.5s ease-in-out infinite;
 }
 
+/* ─── Warning Variant — Warm Peach ─────────────────────────────────────────── */
 .warning {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--accent-peach-bg);
+  color: var(--accent-peach);
+  border-color: var(--accent-peach-soft);
 }
 
 .warning::before {
-  background: #f59e0b;
+  background: var(--accent-peach);
+  box-shadow: 0 0 8px var(--accent-peach-glow);
+  animation: peachPulse 2.5s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  .default {
-    background: #374151;
-    color: #9ca3af;
+/* ─── Pulse Animations — Softer, slower for pastel aesthetic ───────────────── */
+@keyframes mintPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
   }
-
-  .success {
-    background: #14532d;
-    color: #4ade80;
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
   }
+}
 
-  .error {
-    background: #7f1d1d;
-    color: #f87171;
+@keyframes coralPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
   }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
 
-  .warning {
-    background: #78350f;
-    color: #fbbf24;
+@keyframes peachPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
   }
 }
