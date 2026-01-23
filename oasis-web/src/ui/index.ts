@@ -13,3 +13,6 @@ export type { ContainerItemProps } from './components/Container/Container'
 
 export { Stat } from './components/Stat/Stat'
 export type { StatProps } from './components/Stat/Stat'
+
+export { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
+export type { ThemeToggleProps } from './components/ThemeToggle/ThemeToggle'

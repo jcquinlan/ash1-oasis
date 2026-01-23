@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Card, Badge, ContainerItem, Stat } from './ui'
+import { Card, Badge, ContainerItem, Stat, ThemeToggle } from './ui'
+import { useTheme } from './hooks/useTheme'
 import styles from './App.module.css'
 
 interface Container {
@@ -19,6 +20,7 @@ interface SystemInfo {
 }
 
 function App() {
+  const { theme, toggleTheme } = useTheme()
   const [time, setTime] = useState(new Date())
   const [containers, setContainers] = useState<Container[]>([])
   const [system, setSystem] = useState<SystemInfo | null>(null)
@@ -77,9 +79,12 @@ function App() {
       <main className={styles.main}>
         <header className={styles.header}>
           <h1 className={styles.title}>ash1 oasis</h1>
-          <Badge variant={error ? 'error' : 'success'}>
-            {error ? 'offline' : `${runningCount} active`}
-          </Badge>
+          <div className={styles.headerActions}>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <Badge variant={error ? 'error' : 'success'}>
+              {error ? 'offline' : `${runningCount} active`}
+            </Badge>
+          </div>
         </header>
 
         <Card className={styles.timeCard}>

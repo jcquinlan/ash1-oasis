@@ -1,0 +1,44 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ThemeToggle Component — Pastel Theme Switcher
+   Soft, minimal button for toggling light/dark mode
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-base);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.toggle:hover {
+  background: var(--bg-muted);
+  border-color: var(--border-muted);
+  color: var(--fg-base);
+}
+
+.toggle:active {
+  transform: scale(0.95);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}

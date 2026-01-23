@@ -62,6 +62,12 @@
   font-weight: 400;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 /* ─── Time Display — Hero element with soft glow ────────────────────────────── */
 .timeCard {
   text-align: center;
