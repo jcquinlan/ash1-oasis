@@ -1,4 +1,23 @@
+# =============================================================================
+# PRODUCTION DOCKER COMPOSE
+# =============================================================================
+# This compose file pulls pre-built images from GitHub Container Registry.
+# Images are built and pushed by GitHub Actions - this server just runs them.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Rollback to specific version:
+#   IMAGE_TAG=abc1234 docker compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
 services:
+  # ---------------------------------------------------------------------------
+  # Database
+  # ---------------------------------------------------------------------------
+  # PostgreSQL stays as-is - we don't build custom images for the database.
+  # Using the official postgres:16 image directly.
   oasis:
     container_name: oasis-db
     image: postgres:16
@@ -14,11 +33,14 @@ services:
       timeout: 3s
       retries: 20
 
+  # ---------------------------------------------------------------------------
+  # Web Frontend
+  # ---------------------------------------------------------------------------
+  # Pulls from ghcr.io/jcquinlan/oasis-web
+  # IMAGE_TAG defaults to 'latest' but can be overridden for rollbacks
   oasis-web:
     container_name: oasis-web
-    build:
-      context: ./oasis-web
-      dockerfile: Dockerfile
+    image: ghcr.io/jcquinlan/oasis-web:${IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:8081:3000"
     restart: always
@@ -33,11 +55,14 @@ services:
       retries: 3
       start_period: 10s
 
+  # ---------------------------------------------------------------------------
+  # API Server
+  # ---------------------------------------------------------------------------
+  # Pulls from ghcr.io/jcquinlan/oasis-api
+  # Mounts docker socket and /proc for system monitoring capabilities
   oasis-api:
     container_name: oasis-api
-    build:
-      context: ./oasis-api
-      dockerfile: Dockerfile
+    image: ghcr.io/jcquinlan/oasis-api:${IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:8082:3001"
     restart: always
@@ -57,25 +82,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  github-runner:
-    container_name: github-runner
-    image: myoung34/github-runner:latest
-    restart: always
-    network_mode: host
-    environment:
-      - REPO_URL=https://github.com/jcquinlan/ash1-oasis
-      - RUNNER_NAME=oasis-runner
-      - RUNNER_TOKEN=${RUNNER_TOKEN}
-      - RUNNER_WORKDIR=/actions-runner/_work
-      - LABELS=self-hosted,linux,ash1
-      - DISABLE_AUTO_UPDATE=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner-data:/actions-runner
-      - /home/james/.config/oasis:/home/james/.config/oasis:ro
-    security_opt:
-      - label:disable
-
-volumes:
-  runner-data:
