@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import postgres from 'postgres'
 
 const app = new Hono()
+
+const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@oasis:5432/postgres')
 
 app.use('/*', cors())
 
@@ -79,6 +82,94 @@ app.get('/api/system', async (c) => {
 })
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
+
+// Journal CRUD endpoints
+app.get('/api/journal', async (c) => {
+  const page = parseInt(c.req.query('page') || '1')
+  const limit = parseInt(c.req.query('limit') || '20')
+  const offset = (page - 1) * limit
+
+  const [entries, countResult] = await Promise.all([
+    sql`SELECT id, title, content, created_at, updated_at
+        FROM journal.entries
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}`,
+    sql`SELECT COUNT(*)::int as total FROM journal.entries`
+  ])
+
+  return c.json({ entries, total: countResult[0].total, page, limit })
+})
+
+app.get('/api/journal/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const entries = await sql`
+    SELECT id, title, content, created_at, updated_at
+    FROM journal.entries
+    WHERE id = ${id}
+  `
+
+  if (entries.length === 0) {
+    return c.json({ error: 'Entry not found' }, 404)
+  }
+
+  return c.json({ entry: entries[0] })
+})
+
+app.post('/api/journal', async (c) => {
+  const body = await c.req.json()
+  const { title, content } = body as { title: string; content: string }
+
+  if (!title || !content) {
+    return c.json({ error: 'Title and content are required' }, 400)
+  }
+
+  const result = await sql`
+    INSERT INTO journal.entries (title, content)
+    VALUES (${title}, ${content})
+    RETURNING id, title, content, created_at, updated_at
+  `
+
+  return c.json({ entry: result[0] }, 201)
+})
+
+app.put('/api/journal/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const body = await c.req.json()
+  const { title, content } = body as { title: string; content: string }
+
+  if (!title || !content) {
+    return c.json({ error: 'Title and content are required' }, 400)
+  }
+
+  const result = await sql`
+    UPDATE journal.entries
+    SET title = ${title}, content = ${content}
+    WHERE id = ${id}
+    RETURNING id, title, content, created_at, updated_at
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Entry not found' }, 404)
+  }
+
+  return c.json({ entry: result[0] })
+})
+
+app.delete('/api/journal/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+
+  const result = await sql`
+    DELETE FROM journal.entries
+    WHERE id = ${id}
+    RETURNING id
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Entry not found' }, 404)
+  }
+
+  return c.json({ success: true })
+})
 
 const port = process.env.PORT || 3001
 console.log(`API running on port ${port}`)

@@ -1,0 +1,56 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TextArea Component — Pastel Terminal Style
+   Multi-line text input with clean focus states
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}
+
+.label::before {
+  content: '> ';
+  color: var(--accent-blue);
+  font-weight: 400;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 200px;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--fg-base);
+  background: var(--bg-base);
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  resize: vertical;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background var(--transition-base);
+}
+
+.textarea::placeholder {
+  color: var(--fg-faint);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(23, 147, 209, 0.1);
+}
+
+.textarea:hover:not(:focus) {
+  border-color: var(--border-muted);
+}
