@@ -15,6 +15,26 @@ services:
       timeout: 3s
       retries: 20
 
+  oasis-migrations:
+    container_name: oasis-migrations
+    image: postgres:16
+    volumes:
+      - ./scripts/db/init:/migrations:ro
+    env_file:
+      - .env
+    depends_on:
+      oasis:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        for f in /migrations/*.sql; do
+          echo "Running migration: $$f"
+          psql -h oasis -U $$POSTGRES_USER -d $$POSTGRES_DB -f "$$f"
+        done
+        echo "Migrations complete!"
+      '
+    restart: "no"
+
   oasis-web:
     build:
       context: ./oasis-web
@@ -48,3 +68,5 @@ services:
     depends_on:
       oasis:
         condition: service_healthy
+      oasis-migrations:
+        condition: service_completed_successfully

@@ -34,6 +34,31 @@ services:
       retries: 20
 
   # ---------------------------------------------------------------------------
+  # Database Migrations
+  # ---------------------------------------------------------------------------
+  # Runs all SQL files in scripts/db/init on every deploy.
+  # Uses IF NOT EXISTS patterns so it's safe to run repeatedly.
+  oasis-migrations:
+    container_name: oasis-migrations
+    image: postgres:16
+    volumes:
+      - ./scripts/db/init:/migrations:ro
+    env_file:
+      - .env
+    depends_on:
+      oasis:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        for f in /migrations/*.sql; do
+          echo "Running migration: $$f"
+          psql -h oasis -U $$POSTGRES_USER -d $$POSTGRES_DB -f "$$f"
+        done
+        echo "Migrations complete!"
+      '
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
   # Web Frontend
   # ---------------------------------------------------------------------------
   # Pulls from ghcr.io/jcquinlan/oasis-web
@@ -76,6 +101,8 @@ services:
     depends_on:
       oasis:
         condition: service_healthy
+      oasis-migrations:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 30s
