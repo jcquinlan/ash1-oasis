@@ -1,0 +1,34 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   JournalEditor Component — Pastel Terminal Style
+   Form for creating and editing journal entries
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.editor {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-base);
+}
+
+.leftActions {
+  display: flex;
+  gap: var(--space-3);
+}

@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   JournalList Component — Pastel Terminal Style
+   List of journal entries with hover states
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border-base);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.newButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-blue);
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.newButton:hover {
+  background: var(--bg-base);
+  color: var(--accent-blue-hover);
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    transform var(--transition-base);
+}
+
+.entry:hover {
+  background: var(--bg-base);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-base);
+  letter-spacing: var(--tracking-normal);
+}
+
+.title::before {
+  content: '# ';
+  color: var(--accent-lavender);
+  font-weight: 400;
+}
+
+.preview {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+  line-height: var(--leading-relaxed);
+}
+
+.date {
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  letter-spacing: var(--tracking-wide);
+}
+
+.date::before {
+  content: '@ ';
+  color: var(--accent-mint);
+  opacity: 0.7;
+}
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+  background: var(--bg-elevated);
+}
