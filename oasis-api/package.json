@@ -2,7 +2,9 @@
   "name": "frontend-api",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "deploy": "bun build --target=bun --outfile=./dest/server.js ./src/index.ts && bun run ./dest/server.js"
+    "deploy": "bun build --target=bun --outfile=./dest/server.js ./src/index.ts && bun run ./dest/server.js",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
   "dependencies": {
     "hono": "^4.11.4",
