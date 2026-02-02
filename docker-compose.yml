@@ -70,3 +70,25 @@ services:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+
+  book-service:
+    build:
+      context: ./book-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "127.0.0.1:3002:3002"
+    volumes:
+      - ./book-service/src:/app/src:ro
+      - ./book-service/data:/app/data
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BOOK_PRICE_CEILING=${BOOK_PRICE_CEILING:-20}
+      - BOOK_FORMATS=${BOOK_FORMATS:-ebook,paperback}
+      - BOOK_CANDIDATE_COUNT=${BOOK_CANDIDATE_COUNT:-20}
+      - BOOK_MAX_RESULTS=${BOOK_MAX_RESULTS:-10}
+      - BOOK_CACHE_TTL_HOURS=${BOOK_CACHE_TTL_HOURS:-48}
+      - BOOK_ENABLED_SOURCES=${BOOK_ENABLED_SOURCES:-open_library,thriftbooks}
+      - BOOK_LLM_PROVIDER=${BOOK_LLM_PROVIDER:-openai}
+      - BOOK_LLM_MODEL=${BOOK_LLM_MODEL:-gpt-4o-mini}
