@@ -1,0 +1,21 @@
+FROM oven/bun:latest
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock* ./
+
+# Install dependencies
+RUN bun install
+
+# Copy source code (will be overwritten by volume mount in dev)
+COPY . .
+
+# Create data directory for profiles
+RUN mkdir -p /app/data/profiles
+
+# Expose the port
+EXPOSE 3002
+
+# Run development server with hot reload
+CMD ["bun", "run", "dev"]
