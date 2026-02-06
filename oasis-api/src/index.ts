@@ -171,6 +171,239 @@ app.delete('/api/journal/:id', async (c) => {
   return c.json({ success: true })
 })
 
+// ─── Project Planning endpoints ──────────────────────────────────────────────
+
+// List projects with step progress counts
+app.get('/api/projects', async (c) => {
+  const status = c.req.query('status') // optional filter: active, paused, completed, archived
+
+  const projects = status
+    ? await sql`
+        SELECT p.*,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id) as total_steps,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.status = 'completed') as completed_steps
+        FROM projects.projects p
+        WHERE p.status = ${status}
+        ORDER BY p.updated_at DESC`
+    : await sql`
+        SELECT p.*,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id) as total_steps,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.status = 'completed') as completed_steps
+        FROM projects.projects p
+        ORDER BY
+          CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
+          p.updated_at DESC`
+
+  return c.json({ projects })
+})
+
+// Get single project with all steps
+app.get('/api/projects/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const projects = await sql`
+    SELECT * FROM projects.projects WHERE id = ${id}
+  `
+  if (projects.length === 0) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
+  const steps = await sql`
+    SELECT * FROM projects.steps
+    WHERE project_id = ${id}
+    ORDER BY sort_order ASC, id ASC
+  `
+
+  return c.json({ project: projects[0], steps })
+})
+
+// Create project
+app.post('/api/projects', async (c) => {
+  const body = await c.req.json()
+  const { title, description, meta, steps } = body as {
+    title: string
+    description?: string
+    meta?: Record<string, unknown>
+    steps?: Array<{ title: string; description?: string; meta?: Record<string, unknown> }>
+  }
+
+  if (!title) {
+    return c.json({ error: 'Title is required' }, 400)
+  }
+
+  const result = await sql`
+    INSERT INTO projects.projects (title, description, meta)
+    VALUES (${title}, ${description || ''}, ${JSON.stringify(meta || {})})
+    RETURNING *
+  `
+  const project = result[0]
+
+  // Bulk-insert steps if provided
+  let insertedSteps: any[] = []
+  if (steps && steps.length > 0) {
+    const stepValues = steps.map((s, i) => ({
+      project_id: project.id,
+      title: s.title,
+      description: s.description || '',
+      sort_order: (i + 1) * 10,
+      meta: JSON.stringify(s.meta || {}),
+    }))
+
+    insertedSteps = await sql`
+      INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'title', 'description', 'sort_order', 'meta')}
+      RETURNING *
+    `
+  }
+
+  return c.json({ project, steps: insertedSteps }, 201)
+})
+
+// Update project
+app.put('/api/projects/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const body = await c.req.json()
+  const { title, description, status, meta } = body as {
+    title?: string
+    description?: string
+    status?: string
+    meta?: Record<string, unknown>
+  }
+
+  // Build dynamic update — only set fields that were provided
+  const updates: Record<string, unknown> = {}
+  if (title !== undefined) updates.title = title
+  if (description !== undefined) updates.description = description
+  if (status !== undefined) updates.status = status
+  if (meta !== undefined) updates.meta = JSON.stringify(meta)
+
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: 'No fields to update' }, 400)
+  }
+
+  // Since postgres lib doesn't have a clean dynamic SET, build per-field
+  const result = await sql`
+    UPDATE projects.projects SET
+      title = COALESCE(${title ?? null}, title),
+      description = COALESCE(${description ?? null}, description),
+      status = COALESCE(${status ?? null}, status),
+      meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+    WHERE id = ${id}
+    RETURNING *
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
+  return c.json({ project: result[0] })
+})
+
+// Delete project (cascades to steps)
+app.delete('/api/projects/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const result = await sql`
+    DELETE FROM projects.projects WHERE id = ${id} RETURNING id
+  `
+  if (result.length === 0) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+  return c.json({ success: true })
+})
+
+// ─── Step endpoints ────────────────────────────────────────────────────────────
+
+// Add step(s) to a project
+app.post('/api/projects/:id/steps', async (c) => {
+  const projectId = parseInt(c.req.param('id'))
+  const body = await c.req.json()
+
+  // Accept single step or array
+  const stepsInput = Array.isArray(body) ? body : [body]
+
+  // Get current max sort_order
+  const maxResult = await sql`
+    SELECT COALESCE(MAX(sort_order), 0)::int as max_order
+    FROM projects.steps WHERE project_id = ${projectId}
+  `
+  let nextOrder = maxResult[0].max_order + 10
+
+  const stepValues = stepsInput.map((s: any) => ({
+    project_id: projectId,
+    title: s.title,
+    description: s.description || '',
+    sort_order: nextOrder += 10,
+    meta: JSON.stringify(s.meta || {}),
+  }))
+
+  const result = await sql`
+    INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'title', 'description', 'sort_order', 'meta')}
+    RETURNING *
+  `
+
+  return c.json({ steps: result }, 201)
+})
+
+// Update a step
+app.put('/api/projects/:id/steps/:stepId', async (c) => {
+  const stepId = parseInt(c.req.param('stepId'))
+  const body = await c.req.json()
+  const { title, description, status, sort_order, meta } = body as {
+    title?: string
+    description?: string
+    status?: string
+    sort_order?: number
+    meta?: Record<string, unknown>
+  }
+
+  const result = await sql`
+    UPDATE projects.steps SET
+      title = COALESCE(${title ?? null}, title),
+      description = COALESCE(${description ?? null}, description),
+      status = COALESCE(${status ?? null}, status),
+      sort_order = COALESCE(${sort_order ?? null}, sort_order),
+      meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+    WHERE id = ${stepId}
+    RETURNING *
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Step not found' }, 404)
+  }
+
+  return c.json({ step: result[0] })
+})
+
+// Delete a step
+app.delete('/api/projects/:id/steps/:stepId', async (c) => {
+  const stepId = parseInt(c.req.param('stepId'))
+  const result = await sql`
+    DELETE FROM projects.steps WHERE id = ${stepId} RETURNING id
+  `
+  if (result.length === 0) {
+    return c.json({ error: 'Step not found' }, 404)
+  }
+  return c.json({ success: true })
+})
+
+// Reorder steps — accepts array of { id, sort_order }
+app.put('/api/projects/:id/steps', async (c) => {
+  const body = await c.req.json()
+  const updates = body as Array<{ id: number; sort_order: number }>
+
+  if (!Array.isArray(updates)) {
+    return c.json({ error: 'Expected array of { id, sort_order }' }, 400)
+  }
+
+  await sql.begin(async (tx) => {
+    for (const u of updates) {
+      await tx`
+        UPDATE projects.steps SET sort_order = ${u.sort_order} WHERE id = ${u.id}
+      `
+    }
+  })
+
+  return c.json({ success: true })
+})
+
 const port = process.env.PORT || 3001
 console.log(`API running on port ${port}`)
 
