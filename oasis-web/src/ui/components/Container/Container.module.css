@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Container Item — Pastel Terminal Process List Style
-   Clean rows with warm hover states and Arch blue accents
+   Container Item — Warm Rock Process List
+   Clean rows with subtle hover states
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .containerItem {
@@ -11,37 +11,32 @@
   padding: var(--space-3) var(--space-4);
   background: var(--bg-elevated);
   transition:
-    background var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--transition-fast);
   position: relative;
 }
 
-/* ─── Left Border Accent — Arch Blue on Hover ──────────────────────────────── */
+/* ─── Left Border Accent — Terracotta on Hover ─────────────────────────────── */
 .containerItem::before {
   content: '';
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 2px;
   background: transparent;
-  transition:
-    background var(--transition-fast),
-    opacity var(--transition-fast);
+  transition: background var(--transition-fast);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* ─── Hover State — Warm surface with blue accent ──────────────────────────── */
 .containerItem:hover {
   background: var(--bg-surface);
 }
 
 .containerItem:hover::before {
   background: var(--accent-blue);
-  opacity: 0.8;
 }
 
-/* ─── First/Last Item Radius — Clean corners ───────────────────────────────── */
+/* ─── First/Last Item Radius ───────────────────────────────────────────────── */
 .containerItem:first-child {
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
@@ -58,15 +53,4 @@
 
 .containerItem:last-child::before {
   border-bottom-left-radius: var(--radius-lg);
-}
-
-/* ─── Row Index — Subtle line numbers (optional) ───────────────────────────── */
-.containerItem[data-index]::after {
-  content: attr(data-index);
-  position: absolute;
-  left: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--fg-faint);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.5;
 }

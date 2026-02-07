@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ash1 oasis — Pastel Terminal Design System
-   An Arch Linux power user's dream: warm pastels meet terminal precision
+   ash1 oasis — Warm Rock Design System
+   Minimalist earth tones. Sandstone, terracotta, sage.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
@@ -49,123 +49,119 @@
   --transition-base: 150ms ease;
   --transition-slow: 250ms ease;
 
-  /* Border Radius */
+  /* Border Radius — Slightly tighter for clean geometry */
   --radius-none: 0;
-  --radius-sm: 3px;
-  --radius-base: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm: 2px;
+  --radius-base: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 }
 
-/* ─── Pastel Color Palette — Warm Terminal Aesthetic ───────────────────────── */
-/* Inspired by Catppuccin Latte with Arch Linux blue heritage */
+/* ─── Warm Rock Color Palette ─────────────────────────────────────────────── */
+/* Sandstone, terracotta, sage. Sun-warmed surfaces, natural and grounded. */
 :root {
-  /* Background Layers — Warm Cream Base */
-  --bg-base: #faf8f5;           /* Warm cream */
-  --bg-elevated: #ffffff;        /* Pure white for cards */
-  --bg-surface: #f5f2ed;         /* Soft beige surface */
-  --bg-muted: #efe9e1;           /* Muted warm gray */
-  --bg-subtle: #e8e0d5;          /* Subtle warm accent */
+  /* Background Layers — Warm Stone */
+  --bg-base: #f5f0eb;           /* Light sandstone */
+  --bg-elevated: #faf8f5;       /* Warmer white for cards */
+  --bg-surface: #ede7df;        /* Sandstone surface */
+  --bg-muted: #e4dcd2;          /* Muted sandstone */
+  --bg-subtle: #d8cfc3;         /* Warm beige accent */
 
-  /* Foreground — Rich but not harsh */
-  --fg-base: #4c4f69;            /* Soft charcoal (Catppuccin text) */
-  --fg-muted: #6c6f85;           /* Muted text */
-  --fg-subtle: #8c8fa1;          /* Subtle text */
-  --fg-faint: #acb0be;           /* Faint text */
+  /* Foreground — Deep Warm Browns */
+  --fg-base: #3d352e;           /* Deep warm charcoal */
+  --fg-muted: #6b5f54;          /* Medium warm brown */
+  --fg-subtle: #9a8d80;         /* Light warm brown */
+  --fg-faint: #beb2a4;          /* Faint warm tone */
 
-  /* Border — Soft definition */
-  --border-base: #e6e0d6;        /* Warm border */
-  --border-muted: #dcd4c8;       /* Slightly darker */
-  --border-subtle: #cdc4b5;      /* Subtle accent border */
-  --border-accent: #bbb5a8;      /* Stronger definition */
+  /* Border — Sandstone Edge */
+  --border-base: #e0d7cc;       /* Warm border */
+  --border-muted: #d2c7ba;      /* Slightly deeper */
+  --border-subtle: #c4b8aa;     /* Subtle accent border */
+  --border-accent: #b5a898;     /* Stronger definition */
 
-  /* ─── Pastel Accent Colors — Playful yet Professional ───────────────────── */
+  /* ─── Accent Colors — Earthy, Muted, Natural ──────────────────────────── */
 
-  /* Mint Green — Success/Running (soft and inviting) */
-  --accent-mint: #40a02b;        /* Catppuccin green */
-  --accent-mint-soft: #a6e3a1;   /* Soft mint */
-  --accent-mint-bg: #e8f5e4;     /* Mint background */
-  --accent-mint-glow: rgba(64, 160, 43, 0.15);
+  /* Sage — Success/Running */
+  --accent-mint: #6b8f5e;
+  --accent-mint-soft: #a8c9a0;
+  --accent-mint-bg: #edf5eb;
+  --accent-mint-glow: rgba(107, 143, 94, 0.12);
 
-  /* Soft Coral — Error/Stopped (warm, not aggressive) */
-  --accent-coral: #e64553;       /* Catppuccin red/maroon blend */
-  --accent-coral-soft: #f5b8bb;  /* Soft coral */
-  --accent-coral-bg: #fce8e9;    /* Coral background */
-  --accent-coral-glow: rgba(230, 69, 83, 0.15);
+  /* Rust — Error/Stopped */
+  --accent-coral: #b85450;
+  --accent-coral-soft: #d9a5a3;
+  --accent-coral-bg: #f5eaea;
+  --accent-coral-glow: rgba(184, 84, 80, 0.12);
 
-  /* Peach — Warning (warm and friendly) */
-  --accent-peach: #fe640b;       /* Catppuccin peach */
-  --accent-peach-soft: #f9c6a3;  /* Soft peach */
-  --accent-peach-bg: #fef0e4;    /* Peach background */
-  --accent-peach-glow: rgba(254, 100, 11, 0.15);
+  /* Amber — Warning */
+  --accent-peach: #b8873e;
+  --accent-peach-soft: #d9be8e;
+  --accent-peach-bg: #f7f0e3;
+  --accent-peach-glow: rgba(184, 135, 62, 0.12);
 
-  /* Arch Blue — Primary accent (heritage nod) */
-  --accent-blue: #1793d1;        /* Classic Arch blue */
-  --accent-blue-soft: #89dceb;   /* Soft sky blue */
-  --accent-blue-bg: #e5f4fb;     /* Blue background */
-  --accent-blue-glow: rgba(23, 147, 209, 0.15);
+  /* Terracotta — Primary accent */
+  --accent-blue: #b5694d;
+  --accent-blue-soft: #d4a68f;
+  --accent-blue-bg: #f5ece7;
+  --accent-blue-glow: rgba(181, 105, 77, 0.12);
+  --accent-blue-hover: #a25c42;
 
-  /* Lavender — Highlight/Special (playful warmth) */
-  --accent-lavender: #8839ef;    /* Catppuccin mauve */
-  --accent-lavender-soft: #cba6f7; /* Soft lavender */
-  --accent-lavender-bg: #f3ebfc; /* Lavender background */
-  --accent-lavender-glow: rgba(136, 57, 239, 0.15);
+  /* Warm Slate — Highlight/Special */
+  --accent-lavender: #7d7168;
+  --accent-lavender-soft: #b5aca4;
+  --accent-lavender-bg: #f0edea;
+  --accent-lavender-glow: rgba(125, 113, 104, 0.12);
 
-  /* Pink — Accent detail */
-  --accent-pink: #ea76cb;        /* Catppuccin pink */
-  --accent-pink-soft: #f5c2e7;   /* Soft pink */
-  --accent-pink-bg: #fceef8;     /* Pink background */
+  /* Dusty Rose — Accent detail */
+  --accent-pink: #a67b7b;
+  --accent-pink-soft: #d1b5b5;
+  --accent-pink-bg: #f3ecec;
 
-  /* Sky — Info/Cyan replacement */
-  --accent-sky: #04a5e5;         /* Catppuccin sapphire */
-  --accent-sky-soft: #99d1db;    /* Soft sky */
-  --accent-sky-bg: #e5f6fa;      /* Sky background */
-
-  /* Terminal Box Drawing — Decorative */
-  --box-corner: '+';
-  --box-horizontal: '-';
-  --box-vertical: '|';
+  /* Stone Blue — Info */
+  --accent-sky: #7a8a96;
+  --accent-sky-soft: #b0bcc5;
+  --accent-sky-bg: #edf0f3;
 }
 
-/* ─── Dark Theme — Catppuccin Mocha ──────────────────────────────────────────── */
+/* ─── Dark Theme — Deep Warm Stone ────────────────────────────────────────── */
 [data-theme="dark"] {
-  /* Background Layers — Deep charcoal base */
-  --bg-base: #1e1e2e;           /* Mocha base */
-  --bg-elevated: #313244;        /* Surface0 for cards */
-  --bg-surface: #181825;         /* Mantle */
-  --bg-muted: #313244;           /* Surface0 */
-  --bg-subtle: #45475a;          /* Surface1 */
+  /* Background Layers — Dark warm stone */
+  --bg-base: #1c1917;           /* Deep stone */
+  --bg-elevated: #292524;        /* Elevated stone */
+  --bg-surface: #1a1715;         /* Darker surface */
+  --bg-muted: #292524;           /* Muted layer */
+  --bg-subtle: #44403c;          /* Subtle stone */
 
-  /* Foreground — Soft light text */
-  --fg-base: #cdd6f4;            /* Text */
-  --fg-muted: #bac2de;           /* Subtext1 */
-  --fg-subtle: #a6adc8;          /* Subtext0 */
-  --fg-faint: #6c7086;           /* Overlay1 */
+  /* Foreground — Light stone text */
+  --fg-base: #e7e5e4;            /* Primary text */
+  --fg-muted: #d6d3d1;           /* Secondary text */
+  --fg-subtle: #a8a29e;          /* Tertiary text */
+  --fg-faint: #78716c;           /* Faint text */
 
-  /* Border — Subtle definition */
-  --border-base: #313244;        /* Surface0 */
-  --border-muted: #45475a;       /* Surface1 */
-  --border-subtle: #585b70;      /* Surface2 */
-  --border-accent: #6c7086;      /* Overlay1 */
+  /* Border — Dark stone edge */
+  --border-base: #292524;
+  --border-muted: #44403c;
+  --border-subtle: #57534e;
+  --border-accent: #78716c;
 
-  /* Accent backgrounds adjusted for dark mode */
-  --accent-mint-bg: rgba(166, 227, 161, 0.1);
-  --accent-mint-glow: rgba(166, 227, 161, 0.2);
+  /* Accent backgrounds — Muted for dark context */
+  --accent-mint-bg: rgba(168, 201, 160, 0.08);
+  --accent-mint-glow: rgba(168, 201, 160, 0.15);
 
-  --accent-coral-bg: rgba(243, 139, 168, 0.1);
-  --accent-coral-glow: rgba(243, 139, 168, 0.2);
+  --accent-coral-bg: rgba(217, 165, 163, 0.08);
+  --accent-coral-glow: rgba(217, 165, 163, 0.15);
 
-  --accent-peach-bg: rgba(250, 179, 135, 0.1);
-  --accent-peach-glow: rgba(250, 179, 135, 0.2);
+  --accent-peach-bg: rgba(217, 190, 142, 0.08);
+  --accent-peach-glow: rgba(217, 190, 142, 0.15);
 
-  --accent-blue-bg: rgba(137, 180, 250, 0.1);
-  --accent-blue-glow: rgba(137, 180, 250, 0.2);
+  --accent-blue-bg: rgba(212, 166, 143, 0.08);
+  --accent-blue-glow: rgba(212, 166, 143, 0.15);
 
-  --accent-lavender-bg: rgba(180, 190, 254, 0.1);
-  --accent-lavender-glow: rgba(180, 190, 254, 0.2);
+  --accent-lavender-bg: rgba(181, 172, 164, 0.08);
+  --accent-lavender-glow: rgba(181, 172, 164, 0.15);
 
-  --accent-pink-bg: rgba(245, 194, 231, 0.1);
-  --accent-sky-bg: rgba(137, 220, 235, 0.1);
+  --accent-pink-bg: rgba(209, 181, 181, 0.08);
+  --accent-sky-bg: rgba(176, 188, 197, 0.08);
 }
 
 /* ─── Base Reset ────────────────────────────────────────────────────────────── */
@@ -197,39 +193,37 @@ body {
   transition: background-color var(--transition-slow), color var(--transition-slow);
 }
 
-/* ─── Selection — Lavender highlight ───────────────────────────────────────── */
+/* ─── Selection — Warm sand highlight ─────────────────────────────────────── */
 ::selection {
-  background: var(--accent-lavender-soft);
+  background: var(--accent-blue-soft);
   color: var(--fg-base);
 }
 
 ::-moz-selection {
-  background: var(--accent-lavender-soft);
+  background: var(--accent-blue-soft);
   color: var(--fg-base);
 }
 
-/* ─── Focus States — Arch blue ring ────────────────────────────────────────── */
+/* ─── Focus States — Terracotta ring ──────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
-/* ─── Scrollbar — Pastel styled ────────────────────────────────────────────── */
+/* ─── Scrollbar — Warm stone ──────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface);
-  border-radius: var(--radius-base);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
   border-radius: var(--radius-base);
-  border: 2px solid var(--bg-surface);
 }
 
 ::-webkit-scrollbar-thumb:hover {

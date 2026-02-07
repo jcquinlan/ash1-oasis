@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ThemeToggle Component — Pastel Theme Switcher
-   Soft, minimal button for toggling light/dark mode
+   ThemeToggle Component — Warm Rock Theme Switcher
+   Minimal toggle for light/dark mode
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .toggle {
@@ -18,12 +18,11 @@
   transition:
     background var(--transition-fast),
     border-color var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast);
+    color var(--transition-fast);
 }
 
 .toggle:hover {
-  background: var(--bg-muted);
+  background: var(--bg-surface);
   border-color: var(--border-muted);
   color: var(--fg-base);
 }
