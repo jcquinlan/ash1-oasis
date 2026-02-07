@@ -1,10 +1,21 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import postgres from 'postgres'
+import Anthropic from '@anthropic-ai/sdk'
 
 const app = new Hono()
 
 const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@oasis:5432/postgres')
+
+// Anthropic client — lazy init so the app still works without a key
+let anthropic: Anthropic | null = null
+function getAnthropicClient(): Anthropic | null {
+  if (anthropic) return anthropic
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) return null
+  anthropic = new Anthropic({ apiKey: key })
+  return anthropic
+}
 
 app.use('/*', cors())
 
@@ -172,6 +183,57 @@ app.delete('/api/journal/:id', async (c) => {
 })
 
 // ─── Project Planning endpoints ──────────────────────────────────────────────
+
+// Generate steps for a project using Claude
+app.post('/api/projects/generate-steps', async (c) => {
+  const client = getAnthropicClient()
+  if (!client) {
+    return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
+  }
+
+  const body = await c.req.json()
+  const { title, description } = body as { title: string; description?: string }
+
+  if (!title) {
+    return c.json({ error: 'Title is required' }, 400)
+  }
+
+  const prompt = `You are helping someone plan a medium-term project for their homelab/personal development. The project should be completable in roughly 1-3 weeks of evening work.
+
+Project: ${title}
+${description ? `Description: ${description}` : ''}
+
+Generate 5-12 concrete, actionable steps to complete this project. Each step should be:
+- Specific enough to start working on immediately
+- Roughly 1-3 hours of work each
+- Ordered logically (dependencies first)
+- Written as imperative actions ("Set up...", "Create...", "Configure...")
+
+Return ONLY a JSON array of objects with "title" (string) and "description" (string, 1-2 sentences of context/tips). No markdown, no explanation, just the JSON array.`
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+
+    // Parse the JSON from the response — handle potential markdown wrapping
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      return c.json({ error: 'Failed to parse LLM response' }, 500)
+    }
+
+    const steps = JSON.parse(jsonMatch[0]) as Array<{ title: string; description: string }>
+
+    return c.json({ steps })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return c.json({ error: `LLM request failed: ${message}` }, 500)
+  }
+})
 
 // List projects with step progress counts
 app.get('/api/projects', async (c) => {

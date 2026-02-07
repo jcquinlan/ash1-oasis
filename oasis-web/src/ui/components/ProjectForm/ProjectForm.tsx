@@ -14,14 +14,16 @@ export interface ProjectFormProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   initialData?: { title: string; description: string } | null
   onSave: (data: ProjectFormData) => void
   onCancel: () => void
+  onGenerateSteps?: (title: string, description: string) => Promise<Array<{ title: string; description: string }> | null>
   saving?: boolean
 }
 
 export const ProjectForm = forwardRef<HTMLDivElement, ProjectFormProps>(
-  ({ initialData, onSave, onCancel, saving = false, className, ...props }, ref) => {
+  ({ initialData, onSave, onCancel, onGenerateSteps, saving = false, className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [stepsText, setStepsText] = useState('')
+    const [generating, setGenerating] = useState(false)
 
     const isEditing = !!initialData
 
@@ -55,6 +57,16 @@ export const ProjectForm = forwardRef<HTMLDivElement, ProjectFormProps>(
       })
     }
 
+    const handleGenerate = async () => {
+      if (!onGenerateSteps || !title.trim()) return
+      setGenerating(true)
+      const steps = await onGenerateSteps(title.trim(), description.trim())
+      setGenerating(false)
+      if (steps && steps.length > 0) {
+        setStepsText(steps.map(s => s.title).join('\n'))
+      }
+    }
+
     return (
       <div ref={ref} className={`${styles.form} ${className || ''}`} {...props}>
         <form onSubmit={handleSubmit} className={styles.fields}>
@@ -74,12 +86,28 @@ export const ProjectForm = forwardRef<HTMLDivElement, ProjectFormProps>(
           />
 
           {!isEditing && (
-            <TextArea
-              label="Steps (one per line — or leave blank to add later)"
-              value={stepsText}
-              onChange={(e) => setStepsText(e.target.value)}
-              placeholder={"Set up local dev environment\nCreate database schema\nBuild API endpoints\nWire up frontend\nDeploy to production"}
-            />
+            <>
+              <div className={styles.stepsHeader}>
+                <label className={styles.stepsLabel}>Steps</label>
+                {onGenerateSteps && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleGenerate}
+                    disabled={!title.trim() || generating}
+                  >
+                    {generating ? 'Generating...' : '~ Generate with AI'}
+                  </Button>
+                )}
+              </div>
+              <TextArea
+                label=""
+                value={stepsText}
+                onChange={(e) => setStepsText(e.target.value)}
+                placeholder={"One step per line — or use Generate above\n\ne.g.\nSet up local dev environment\nCreate database schema\nBuild API endpoints\nWire up frontend\nDeploy to production"}
+              />
+            </>
           )}
 
           <div className={styles.actions}>

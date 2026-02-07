@@ -32,3 +32,20 @@
   display: flex;
   gap: var(--space-3);
 }
+
+/* ─── Steps Header — label + generate button ───────────────────────────────── */
+.stepsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: calc(-1 * var(--space-4));
+}
+
+.stepsLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}

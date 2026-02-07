@@ -5,6 +5,7 @@
     "deploy": "bun build --target=bun --outfile=./dest/server.js ./src/index.ts && bun run ./dest/server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0",
     "hono": "^4.11.4",
     "postgres": "^3.4.4"
   },

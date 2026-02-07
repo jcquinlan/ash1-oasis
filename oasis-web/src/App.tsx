@@ -356,6 +356,7 @@ function App() {
           <ProjectForm
             onSave={handleCreateProject}
             onCancel={() => setView('projects-list')}
+            onGenerateSteps={projects.generateSteps}
             saving={saving}
           />
         )}

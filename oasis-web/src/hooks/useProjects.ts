@@ -176,6 +176,27 @@ export function useProjects() {
     }
   }, [])
 
+  const generateSteps = useCallback(async (
+    title: string,
+    description?: string
+  ): Promise<Array<{ title: string; description: string }> | null> => {
+    try {
+      const res = await fetch('/api/projects/generate-steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to generate steps')
+      }
+      const data = await res.json()
+      return data.steps
+    } catch {
+      return null
+    }
+  }, [])
+
   return {
     ...state,
     fetchProjects,
@@ -187,5 +208,6 @@ export function useProjects() {
     updateStep,
     deleteStep,
     reorderSteps,
+    generateSteps,
   }
 }
