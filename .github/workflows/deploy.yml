@@ -137,9 +137,17 @@ jobs:
           script: |
             cd ~/ash1-oasis
 
+            # Pull latest compose file, migration SQL, and other config
+            git pull origin master
+
             # Pull the specific commit SHA for traceability
             # If this deploy breaks things, you know exactly which commit did it
             docker compose -f docker-compose.prod.yml pull
+
+            # Remove the migrations container so it re-runs on every deploy.
+            # Its image (postgres:16) doesn't change, so compose would
+            # otherwise see it as "already completed" and skip it.
+            docker compose -f docker-compose.prod.yml rm -f oasis-migrations
 
             # Recreate containers with new images
             # --force-recreate ensures containers restart even if config unchanged
