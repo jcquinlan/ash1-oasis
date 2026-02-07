@@ -1,6 +1,11 @@
 import { forwardRef, useState, useEffect, useRef, type HTMLAttributes } from 'react'
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import Link from '@tiptap/extension-link'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { Markdown } from 'tiptap-markdown'
 import { Button } from '../Button/Button'
 import styles from './JournalEditor.module.css'
 
@@ -23,35 +28,63 @@ export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>,
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
   ({ entry, onSave, onDelete, onCancel, saving = false, className, ...props }, ref) => {
     const [title, setTitle] = useState('')
-    const [content, setContent] = useState('')
-    const [mode, setMode] = useState<'write' | 'preview'>('write')
-    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const contentRef = useRef('')
+
+    const editor = useEditor({
+      extensions: [
+        StarterKit,
+        Placeholder.configure({
+          placeholder: 'Start writing...',
+        }),
+        Link.configure({
+          openOnClick: false,
+          autolink: true,
+        }),
+        TaskList,
+        TaskItem.configure({
+          nested: true,
+        }),
+        Markdown.configure({
+          html: false,
+          transformPastedText: true,
+          transformCopiedText: true,
+        }),
+      ],
+      content: '',
+      onUpdate: ({ editor }) => {
+        const md = (editor.storage as Record<string, any>).markdown
+        contentRef.current = md.getMarkdown()
+      },
+    })
 
     useEffect(() => {
+      if (!editor) return
       if (entry) {
         setTitle(entry.title)
-        setContent(entry.content)
+        editor.commands.setContent(entry.content)
+        contentRef.current = entry.content
       } else {
         setTitle('')
-        setContent('')
+        editor.commands.setContent('')
+        contentRef.current = ''
       }
-    }, [entry])
+    }, [entry, editor])
 
-    const handleSubmit = (e?: React.FormEvent) => {
-      e?.preventDefault()
-      if (title.trim() && content.trim()) {
-        onSave({ title: title.trim(), content: content.trim() })
+    const handleSave = () => {
+      const content = contentRef.current.trim()
+      if (title.trim() && content) {
+        onSave({ title: title.trim(), content })
       }
     }
 
     const handleTitleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault()
-        textareaRef.current?.focus()
+        editor?.commands.focus('start')
       }
     }
 
-    const isValid = title.trim() && content.trim()
+    const isValid = title.trim() && contentRef.current.trim()
 
     return (
       <div ref={ref} className={`${styles.editor} ${className || ''}`} {...props}>
@@ -64,23 +97,6 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           >
             &larr; Journal
           </button>
-
-          <div className={styles.modeTabs}>
-            <button
-              type="button"
-              className={`${styles.modeTab} ${mode === 'write' ? styles.modeTabActive : ''}`}
-              onClick={() => setMode('write')}
-            >
-              Write
-            </button>
-            <button
-              type="button"
-              className={`${styles.modeTab} ${mode === 'preview' ? styles.modeTabActive : ''}`}
-              onClick={() => setMode('preview')}
-            >
-              Preview
-            </button>
-          </div>
 
           <div className={styles.toolbarActions}>
             {entry && onDelete && (
@@ -97,7 +113,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
               variant="primary"
               size="sm"
               disabled={!isValid || saving}
-              onClick={() => handleSubmit()}
+              onClick={handleSave}
             >
               {saving ? 'Saving...' : entry ? 'Save' : 'Create'}
             </Button>
@@ -105,40 +121,17 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
         </div>
 
         <div className={styles.body}>
-          {mode === 'write' ? (
-            <form onSubmit={handleSubmit} className={styles.form}>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={handleTitleKeyDown}
-                placeholder="Title"
-                className={styles.titleInput}
-                autoFocus={!entry}
-                required
-              />
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            placeholder="Title"
+            className={styles.titleInput}
+            autoFocus={!entry}
+          />
 
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write in markdown..."
-                className={styles.contentArea}
-                required
-              />
-            </form>
-          ) : (
-            <div className={styles.preview}>
-              <h1 className={styles.previewTitle}>{title || 'Untitled'}</h1>
-              {content ? (
-                <div className={styles.markdown}>
-                  <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
-                </div>
-              ) : (
-                <p className={styles.previewEmpty}>Nothing to preview</p>
-              )}
-            </div>
-          )}
+          <EditorContent editor={editor} className={styles.contentEditor} />
         </div>
       </div>
     )

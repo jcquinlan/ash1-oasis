@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   JournalEditor — Distraction-Free Writing with Markdown
-   Full-viewport writing surface with Write/Preview modes
+   JournalEditor — Distraction-Free Rich Text Writing
+   Full-viewport surface with TipTap inline markdown rendering
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .editor {
@@ -52,40 +52,6 @@
   background: var(--bg-elevated);
 }
 
-/* ─── Mode Tabs — Write / Preview toggle ────────────────────────────────── */
-.modeTabs {
-  display: flex;
-  gap: 1px;
-  background: var(--border-base);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.modeTab {
-  font-family: inherit;
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--fg-subtle);
-  background: var(--bg-elevated);
-  border: none;
-  cursor: pointer;
-  padding: var(--space-2) var(--space-4);
-  letter-spacing: var(--tracking-wider);
-  text-transform: uppercase;
-  transition:
-    color var(--transition-base),
-    background var(--transition-base);
-}
-
-.modeTab:hover {
-  color: var(--fg-base);
-}
-
-.modeTabActive {
-  color: var(--accent-blue);
-  background: var(--bg-base);
-}
-
 .toolbarActions {
   display: flex;
   align-items: center;
@@ -113,15 +79,8 @@
   background: var(--accent-pink-bg);
 }
 
-/* ─── Body — Shared container for write and preview ─────────────────────── */
+/* ─── Body — Writing surface ────────────────────────────────────────────── */
 .body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-/* ─── Form — The writing surface ────────────────────────────────────────── */
-.form {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -151,70 +110,42 @@
   color: var(--fg-faint);
 }
 
-/* ─── Content — Expansive writing area ──────────────────────────────────── */
-.contentArea {
-  font-family: inherit;
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
-  color: var(--fg-base);
-  background: transparent;
-  border: none;
-  outline: none;
-  width: 100%;
-  flex: 1;
-  min-height: 60vh;
-  padding: 0;
-  resize: none;
-}
-
-.contentArea::placeholder {
-  color: var(--fg-faint);
-}
-
-/* ─── Preview — Rendered markdown view ──────────────────────────────────── */
-.preview {
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-8) var(--space-6);
-  flex: 1;
-}
-
-.previewTitle {
-  font-family: inherit;
-  font-size: var(--text-2xl);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  color: var(--fg-base);
-  letter-spacing: var(--tracking-tight);
-  margin-bottom: var(--space-6);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-base);
-}
-
-.previewEmpty {
-  color: var(--fg-faint);
-  font-style: italic;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
-   Markdown Typography — Rendered content styles
-   Clean, readable prose that fits the Pastel Terminal aesthetic
+   TipTap Editor — Rich text content area
+   Targets the .tiptap element rendered by EditorContent
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.markdown {
+.contentEditor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.contentEditor :global(.tiptap) {
+  flex: 1;
+  outline: none;
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
   color: var(--fg-base);
+  min-height: 60vh;
+}
+
+/* Placeholder */
+.contentEditor :global(.tiptap p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--fg-faint);
 }
 
 /* ─── Headings ──────────────────────────────────────────────────────────── */
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4,
-.markdown h5,
-.markdown h6 {
+.contentEditor :global(.tiptap h1),
+.contentEditor :global(.tiptap h2),
+.contentEditor :global(.tiptap h3),
+.contentEditor :global(.tiptap h4),
+.contentEditor :global(.tiptap h5),
+.contentEditor :global(.tiptap h6) {
   font-family: inherit;
   font-weight: 600;
   line-height: var(--leading-tight);
@@ -223,24 +154,25 @@
   margin-bottom: var(--space-3);
 }
 
-.markdown h1 { font-size: var(--text-xl); }
-.markdown h2 { font-size: var(--text-lg); }
-.markdown h3 { font-size: var(--text-base); }
-.markdown h4,
-.markdown h5,
-.markdown h6 { font-size: var(--text-sm); }
+.contentEditor :global(.tiptap h1) { font-size: var(--text-xl); }
+.contentEditor :global(.tiptap h2) { font-size: var(--text-lg); }
+.contentEditor :global(.tiptap h3) { font-size: var(--text-base); font-weight: 600; }
+.contentEditor :global(.tiptap h4),
+.contentEditor :global(.tiptap h5),
+.contentEditor :global(.tiptap h6) { font-size: var(--text-sm); }
 
-.markdown h2 {
+.contentEditor :global(.tiptap h2) {
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-base);
 }
 
-/* ─── Block elements ────────────────────────────────────────────────────── */
-.markdown p {
+/* ─── Paragraphs ────────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap p) {
   margin-bottom: var(--space-4);
 }
 
-.markdown blockquote {
+/* ─── Blockquotes ───────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap blockquote) {
   margin: var(--space-4) 0;
   padding: var(--space-3) var(--space-5);
   border-left: 3px solid var(--accent-lavender-soft);
@@ -249,46 +181,66 @@
   color: var(--fg-muted);
 }
 
-.markdown blockquote p:last-child {
+.contentEditor :global(.tiptap blockquote p:last-child) {
   margin-bottom: 0;
 }
 
-.markdown hr {
+/* ─── Horizontal Rule ───────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap hr) {
   border: none;
   border-top: 1px solid var(--border-base);
   margin: var(--space-6) 0;
 }
 
 /* ─── Lists ─────────────────────────────────────────────────────────────── */
-.markdown ul,
-.markdown ol {
+.contentEditor :global(.tiptap ul),
+.contentEditor :global(.tiptap ol) {
   margin: var(--space-3) 0;
   padding-left: var(--space-6);
 }
 
-.markdown li {
+.contentEditor :global(.tiptap li) {
   margin-bottom: var(--space-2);
 }
 
-.markdown li > ul,
-.markdown li > ol {
+.contentEditor :global(.tiptap li p) {
+  margin-bottom: 0;
+}
+
+.contentEditor :global(.tiptap li > ul),
+.contentEditor :global(.tiptap li > ol) {
   margin-top: var(--space-2);
   margin-bottom: 0;
 }
 
-/* ─── Task lists (GFM) ─────────────────────────────────────────────────── */
-.markdown ul:has(> li > input[type="checkbox"]) {
+/* ─── Task Lists ────────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap ul[data-type="taskList"]) {
   list-style: none;
   padding-left: var(--space-1);
 }
 
-.markdown li > input[type="checkbox"] {
-  margin-right: var(--space-2);
-  accent-color: var(--accent-blue);
+.contentEditor :global(.tiptap ul[data-type="taskList"] li) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
-/* ─── Code ──────────────────────────────────────────────────────────────── */
-.markdown code {
+.contentEditor :global(.tiptap ul[data-type="taskList"] li label) {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+}
+
+.contentEditor :global(.tiptap ul[data-type="taskList"] li label input[type="checkbox"]) {
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.contentEditor :global(.tiptap ul[data-type="taskList"] li div) {
+  flex: 1;
+}
+
+/* ─── Inline Code ───────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap code) {
   font-family: inherit;
   font-size: 0.9em;
   background: var(--bg-surface);
@@ -298,7 +250,8 @@
   color: var(--accent-lavender);
 }
 
-.markdown pre {
+/* ─── Code Blocks ───────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap pre) {
   margin: var(--space-4) 0;
   padding: var(--space-4);
   background: var(--bg-surface);
@@ -307,7 +260,7 @@
   overflow-x: auto;
 }
 
-.markdown pre code {
+.contentEditor :global(.tiptap pre code) {
   background: none;
   border: none;
   padding: 0;
@@ -315,63 +268,37 @@
   color: var(--fg-base);
 }
 
-/* ─── Tables (GFM) ─────────────────────────────────────────────────────── */
-.markdown table {
-  width: 100%;
-  margin: var(--space-4) 0;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.markdown th,
-.markdown td {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-base);
-  text-align: left;
-}
-
-.markdown th {
-  font-weight: 600;
-  background: var(--bg-surface);
-  color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wider);
-  font-size: var(--text-xs);
-}
-
-.markdown tr:hover {
-  background: var(--bg-surface);
-}
-
-/* ─── Inline elements ───────────────────────────────────────────────────── */
-.markdown a {
+/* ─── Links ─────────────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap a) {
   color: var(--accent-blue);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition:
     border-color var(--transition-base),
     color var(--transition-base);
+  cursor: pointer;
 }
 
-.markdown a:hover {
+.contentEditor :global(.tiptap a:hover) {
   border-bottom-color: var(--accent-blue);
 }
 
-.markdown strong {
+/* ─── Inline formatting ─────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap strong) {
   font-weight: 600;
-  color: var(--fg-base);
 }
 
-.markdown em {
+.contentEditor :global(.tiptap em) {
   font-style: italic;
 }
 
-.markdown del {
+.contentEditor :global(.tiptap s) {
   color: var(--fg-subtle);
   text-decoration: line-through;
 }
 
-.markdown img {
+/* ─── Images ────────────────────────────────────────────────────────────── */
+.contentEditor :global(.tiptap img) {
   max-width: 100%;
   height: auto;
   border-radius: var(--radius-lg);
@@ -380,16 +307,11 @@
 
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .form {
+  .body {
     padding: var(--space-6) var(--space-4);
   }
 
-  .preview {
-    padding: var(--space-6) var(--space-4);
-  }
-
-  .titleInput,
-  .previewTitle {
+  .titleInput {
     font-size: var(--text-xl);
   }
 
