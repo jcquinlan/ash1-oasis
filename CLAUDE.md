@@ -77,6 +77,15 @@ The API server executes shell commands using Bun.spawn to gather system informat
 
 Vite configuration restricts preview server to allow only `jamescq.com` as allowed host, suggesting this is deployed on that domain.
 
+## Database Migrations
+
+Migration files live in `scripts/db/init/` and are run by the `oasis-migrations` container on every `docker compose up`. All SQL in migration files **must be idempotent** so they can safely re-run against an existing database. Use patterns like:
+- `CREATE SCHEMA IF NOT EXISTS`
+- `CREATE TABLE IF NOT EXISTS`
+- `CREATE INDEX IF NOT EXISTS`
+- `CREATE OR REPLACE FUNCTION`
+- `DROP TRIGGER IF EXISTS` before `CREATE TRIGGER` (Postgres has no `IF NOT EXISTS` for triggers)
+
 ## DevOps Learning Goals
 
 This monorepo supports hands-on learning of:
