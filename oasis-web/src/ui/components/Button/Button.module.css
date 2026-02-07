@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Button Component — Pastel Terminal Style
-   Warm interactive buttons with subtle accents
+   Button Component — Warm Rock Minimalist
+   Earth-toned interactive buttons
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .button {
@@ -11,13 +11,12 @@
   font-family: inherit;
   font-weight: 500;
   letter-spacing: var(--tracking-wide);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-base);
   cursor: pointer;
   transition:
     background var(--transition-base),
     border-color var(--transition-base),
-    color var(--transition-base),
-    box-shadow var(--transition-base);
+    color var(--transition-base);
 }
 
 .button:disabled {
@@ -36,7 +35,7 @@
   padding: var(--space-3) var(--space-4);
 }
 
-/* ─── Primary Variant — Arch Blue ───────────────────────────────────────── */
+/* ─── Primary — Terracotta ───────────────────────────────────────────────── */
 .primary {
   background: var(--accent-blue);
   color: white;
@@ -52,7 +51,7 @@
   transform: scale(0.98);
 }
 
-/* ─── Secondary Variant — Subtle ─────────────────────────────────────────── */
+/* ─── Secondary — Subtle Stone ───────────────────────────────────────────── */
 .secondary {
   background: var(--bg-elevated);
   color: var(--fg-base);
@@ -60,18 +59,19 @@
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--bg-base);
+  background: var(--bg-surface);
   border-color: var(--border-muted);
 }
 
-/* ─── Danger Variant — For destructive actions ──────────────────────────── */
+/* ─── Danger — Rust ──────────────────────────────────────────────────────── */
 .danger {
   background: transparent;
-  color: var(--accent-pink);
-  border: 1px solid var(--accent-pink);
+  color: var(--accent-coral);
+  border: 1px solid var(--accent-coral-soft);
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--accent-pink);
+  background: var(--accent-coral);
   color: white;
+  border-color: var(--accent-coral);
 }

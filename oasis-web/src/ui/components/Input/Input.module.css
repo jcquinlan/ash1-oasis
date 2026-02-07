@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Input Component — Pastel Terminal Style
-   Clean text inputs with subtle focus states
+   Input Component — Warm Rock Minimalist
+   Clean text inputs with earth-toned focus states
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .wrapper {
@@ -17,12 +17,6 @@
   letter-spacing: var(--tracking-widest);
 }
 
-.label::before {
-  content: '> ';
-  color: var(--accent-blue);
-  font-weight: 400;
-}
-
 .input {
   width: 100%;
   font-family: inherit;
@@ -30,12 +24,11 @@
   color: var(--fg-base);
   background: var(--bg-base);
   border: 1px solid var(--border-base);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-base);
   padding: var(--space-3) var(--space-4);
   transition:
     border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    background var(--transition-base);
+    box-shadow var(--transition-base);
 }
 
 .input::placeholder {
@@ -45,7 +38,7 @@
 .input:focus {
   outline: none;
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(23, 147, 209, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-blue-glow);
 }
 
 .input:hover:not(:focus) {

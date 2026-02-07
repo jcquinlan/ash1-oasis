@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   JournalList Component — Pastel Terminal Style
-   List of journal entries with hover states
+   JournalList Component — Warm Rock Minimalist
+   Clean list of journal entries
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .list {
@@ -10,9 +10,6 @@
   background: var(--border-base);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .newButton {
@@ -33,7 +30,7 @@
 }
 
 .newButton:hover {
-  background: var(--bg-base);
+  background: var(--bg-surface);
   color: var(--accent-blue-hover);
 }
 
@@ -48,12 +45,11 @@
   font-family: inherit;
   cursor: pointer;
   transition:
-    background var(--transition-base),
-    transform var(--transition-base);
+    background var(--transition-base);
 }
 
 .entry:hover {
-  background: var(--bg-base);
+  background: var(--bg-surface);
 }
 
 .title {
@@ -61,12 +57,6 @@
   font-weight: 600;
   color: var(--fg-base);
   letter-spacing: var(--tracking-normal);
-}
-
-.title::before {
-  content: '# ';
-  color: var(--accent-lavender);
-  font-weight: 400;
 }
 
 .preview {
@@ -79,12 +69,6 @@
   font-size: var(--text-xs);
   color: var(--fg-faint);
   letter-spacing: var(--tracking-wide);
-}
-
-.date::before {
-  content: '@ ';
-  color: var(--accent-mint);
-  opacity: 0.7;
 }
 
 .empty {
