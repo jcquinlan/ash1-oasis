@@ -36,11 +36,10 @@
 }
 
 .title {
-  font-family: var(--font-display);
   font-size: var(--text-lg);
-  font-weight: 400;
+  font-weight: 600;
   color: var(--fg-base);
-  letter-spacing: var(--tracking-normal);
+  letter-spacing: var(--tracking-tight);
 }
 
 .headerActions {

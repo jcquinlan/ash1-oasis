@@ -20,12 +20,12 @@
 
 .time {
   display: block;
-  font-family: var(--font-display);
   font-size: var(--text-4xl);
-  font-weight: 400;
+  font-weight: 300;
   color: var(--fg-base);
   line-height: var(--leading-none);
   letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
 }
 
 .date {
@@ -73,7 +73,6 @@
 }
 
 .containerName {
-  font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--fg-base);

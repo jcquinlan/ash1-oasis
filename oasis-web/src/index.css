@@ -6,9 +6,7 @@
 /* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
   /* Typography */
-  --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Menlo', 'Consolas', monospace;
 
   /* Spacing Scale (8px base) */
   --space-1: 0.25rem;   /* 4px */

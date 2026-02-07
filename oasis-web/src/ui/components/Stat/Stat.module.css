@@ -31,7 +31,6 @@
 
 /* ─── Value ─────────────────────────────────────────────────────────────────── */
 .value {
-  font-family: var(--font-mono);
   font-size: var(--text-xl);
   font-weight: 600;
   color: var(--fg-base);
