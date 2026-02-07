@@ -86,6 +86,27 @@ Migration files live in `scripts/db/init/` and are run by the `oasis-migrations`
 - `CREATE OR REPLACE FUNCTION`
 - `DROP TRIGGER IF EXISTS` before `CREATE TRIGGER` (Postgres has no `IF NOT EXISTS` for triggers)
 
+## Fail Loudly
+
+New services and CI/CD pipelines **must fail noisily** — silent failures are the worst kind of failures. Apply these principles:
+
+### Services
+- Containers should use **health checks** that cause restarts on failure, not just keep running in a degraded state
+- Use `restart: unless-stopped` or `restart: on-failure` with clear exit codes — never swallow errors to stay "up"
+- Startup dependencies should be explicit (`depends_on` with `condition: service_healthy`) so a broken dependency blocks startup rather than producing runtime errors
+- Log to stdout/stderr so failures surface in `docker compose logs` — never log to a file inside the container where it won't be seen
+
+### CI/CD Pipelines
+- Pipeline steps must use `set -euo pipefail` (or equivalent) so any command failure stops the build immediately
+- Never use `|| true`, `set +e`, or ignore exit codes unless there is a documented reason
+- Builds and deploys should fail the pipeline on warnings, not just errors, where practical
+- Notifications (webhook, email, etc.) should fire on failure — a red pipeline nobody sees is the same as no pipeline
+
+### General
+- Prefer crashing over silently returning defaults or empty results
+- Health check endpoints should verify actual dependencies (database connectivity, upstream reachability), not just return 200
+- When adding error handling, handle the error *or* propagate it — never catch and ignore
+
 ## DevOps Learning Goals
 
 This monorepo supports hands-on learning of:
