@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ProjectList Component — Pastel Terminal Style
+   List of projects with progress bars
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border-base);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.newButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-blue);
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.newButton:hover {
+  background: var(--bg-base);
+  color: var(--accent-blue-hover);
+}
+
+.project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background var(--transition-base);
+}
+
+.project:hover {
+  background: var(--bg-base);
+}
+
+.projectHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-base);
+  letter-spacing: var(--tracking-normal);
+}
+
+.title::before {
+  content: '~ ';
+  color: var(--accent-blue);
+  font-weight: 400;
+}
+
+.description {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+  line-height: var(--leading-relaxed);
+}
+
+/* ─── Progress Bar ──────────────────────────────────────────────────────────── */
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.progressTrack {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-mint);
+  border-radius: 2px;
+  transition: width 300ms ease;
+  min-width: 0;
+}
+
+.progressLabel {
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.updated {
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  letter-spacing: var(--tracking-wide);
+}
+
+.updated::before {
+  content: '@ ';
+  color: var(--accent-mint);
+  opacity: 0.7;
+}
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+  background: var(--bg-elevated);
+}

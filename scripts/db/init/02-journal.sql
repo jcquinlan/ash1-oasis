@@ -21,6 +21,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_updated_at ON journal.entries;
 CREATE TRIGGER set_updated_at
     BEFORE UPDATE ON journal.entries
     FOR EACH ROW
