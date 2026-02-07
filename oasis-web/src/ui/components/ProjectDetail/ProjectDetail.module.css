@@ -56,8 +56,9 @@
 }
 
 .title {
-  font-size: var(--text-lg);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--fg-base);
 }
 
@@ -95,6 +96,7 @@
 }
 
 .progressLabel {
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--fg-subtle);
   font-variant-numeric: tabular-nums;

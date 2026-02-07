@@ -97,6 +97,7 @@
 }
 
 .progressLabel {
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--fg-faint);
   font-variant-numeric: tabular-nums;

@@ -36,11 +36,11 @@
 }
 
 .title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-widest);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--fg-base);
+  letter-spacing: var(--tracking-normal);
 }
 
 .headerActions {
