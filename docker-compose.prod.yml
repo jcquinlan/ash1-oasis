@@ -25,7 +25,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - oasis-pgdata:/var/lib/postgresql/data
       - ./scripts/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -111,3 +111,57 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Automated Backups
+  # ---------------------------------------------------------------------------
+  # Runs pg_dump daily at 3 AM and keeps 7 days of backups.
+  # Backups are stored in a named volume so they survive container recreation.
+  #
+  # Manual backup:
+  #   docker compose -f docker-compose.prod.yml exec oasis-backup /scripts/backup-postgres.sh
+  #
+  # Restore from backup:
+  #   gunzip -c backups/oasis-YYYYMMDD-HHMMSS.sql.gz | docker compose -f docker-compose.prod.yml exec -T oasis psql -U $POSTGRES_USER -d $POSTGRES_DB
+  oasis-backup:
+    container_name: oasis-backup
+    image: postgres:16
+    volumes:
+      - oasis-backups:/backups
+      - ./scripts/backup-postgres.sh:/scripts/backup-postgres.sh:ro
+    env_file:
+      - .env
+    depends_on:
+      oasis:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        echo "Backup scheduler starting — daily at 3:00 AM"
+        while true; do
+          NEXT_3AM=$$(date -d "tomorrow 03:00" +%s 2>/dev/null || date -d "tomorrow" +%s)
+          NOW=$$(date +%s)
+          SLEEP_SEC=$$((NEXT_3AM - NOW))
+          if [ "$$SLEEP_SEC" -le 0 ]; then SLEEP_SEC=86400; fi
+          echo "Next backup in $$SLEEP_SEC seconds"
+          sleep "$$SLEEP_SEC"
+          echo "--- Backup triggered at $$(date) ---"
+          /scripts/backup-postgres.sh
+        done
+      '
+    restart: always
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+# Named volumes are managed by Docker and are NOT removed by:
+#   docker compose down        (safe)
+#   docker compose down -v     (DESTROYS volumes — never use in production)
+#   rm -rf ./data              (no effect — data is in Docker's volume store)
+#
+# To inspect: docker volume inspect ash1-oasis_oasis-pgdata
+# To list:    docker volume ls | grep oasis
+volumes:
+  oasis-pgdata:
+    name: oasis-pgdata
+  oasis-backups:
+    name: oasis-backups
