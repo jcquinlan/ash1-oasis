@@ -50,6 +50,7 @@ export interface ProjectDetailProps extends HTMLAttributes<HTMLDivElement> {
   onUpdateProjectStatus: (status: string) => void
   onGenerateSteps?: (title: string, description: string) => Promise<NestedStep[] | null>
   onAcceptSteps?: (steps: NestedStep[]) => Promise<void>
+  onEditStepsWithAI?: (prompt: string) => Promise<void>
 }
 
 // Recursive step renderer
@@ -317,6 +318,7 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
     onUpdateProjectStatus,
     onGenerateSteps,
     onAcceptSteps,
+    onEditStepsWithAI,
     className,
     ...props
   }, ref) => {
@@ -331,6 +333,9 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
     const [generating, setGenerating] = useState(false)
     const [accepting, setAccepting] = useState(false)
     const [expandedSuggestion, setExpandedSuggestion] = useState<NestedStep | null>(null)
+    const [showEditAI, setShowEditAI] = useState(false)
+    const [editPrompt, setEditPrompt] = useState('')
+    const [applyingEdit, setApplyingEdit] = useState(false)
 
     const completedCount = allSteps.filter(s => s.status === 'completed').length
     const totalCount = allSteps.length
@@ -407,6 +412,15 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
       } else {
         setSuggestedSteps(updated)
       }
+    }
+
+    const handleEditWithAI = async () => {
+      if (!onEditStepsWithAI || !editPrompt.trim()) return
+      setApplyingEdit(true)
+      await onEditStepsWithAI(editPrompt.trim())
+      setApplyingEdit(false)
+      setEditPrompt('')
+      setShowEditAI(false)
     }
 
     const statusVariant = (status: string) => {
@@ -509,6 +523,15 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
                   {generating ? 'Generating...' : '~ Generate with AI'}
                 </Button>
               )}
+              {onEditStepsWithAI && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowEditAI(!showEditAI)}
+                >
+                  {showEditAI ? 'Cancel Edit' : '~ Edit with AI'}
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -542,6 +565,35 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
               >
                 Add Step
               </Button>
+            </div>
+          )}
+
+          {/* Edit steps with AI */}
+          {showEditAI && (
+            <div className={styles.editAIPanel}>
+              <TextArea
+                label=""
+                value={editPrompt}
+                onChange={(e) => setEditPrompt(e.target.value)}
+                placeholder="Describe what you want to change — e.g. 'Break the first step into smaller sub-steps' or 'Add a testing phase at the end'"
+              />
+              <div className={styles.editAIActions}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleEditWithAI}
+                  disabled={!editPrompt.trim() || applyingEdit}
+                >
+                  {applyingEdit ? 'Applying...' : 'Apply Edit'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => { setShowEditAI(false); setEditPrompt('') }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
 

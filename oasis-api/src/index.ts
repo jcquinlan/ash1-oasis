@@ -430,6 +430,175 @@ app.delete('/api/projects/:id', async (c) => {
 
 // ─── Step endpoints ────────────────────────────────────────────────────────────
 
+// Build a step tree from flat rows (server-side equivalent of the frontend buildStepTree)
+function buildStepTreeFromRows(rows: any[]): any[] {
+  const map = new Map<number, any>()
+  const roots: any[] = []
+
+  for (const row of rows) {
+    map.set(row.id, {
+      id: row.id,
+      title: row.title,
+      description: row.description || '',
+      status: row.status,
+      children: [],
+    })
+  }
+
+  for (const row of rows) {
+    const node = map.get(row.id)!
+    if (row.parent_id && map.has(row.parent_id)) {
+      map.get(row.parent_id)!.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  }
+
+  return roots
+}
+
+// Apply a desired step tree from the LLM against the existing steps in the DB.
+// - Steps with an `id` matching an existing row → update
+// - Steps without an `id` → insert
+// - Existing steps not present in the tree → delete
+async function applyStepTreeDiff(
+  tx: typeof sql,
+  projectId: number,
+  desiredTree: any[],
+  existingStepIds: Set<number>
+) {
+  const seenIds = new Set<number>()
+
+  async function processLevel(nodes: any[], parentId: number | null, startOrder: number) {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i]
+      const sortOrder = startOrder + (i + 1) * 10
+
+      if (node.id && existingStepIds.has(node.id)) {
+        // Update existing step
+        seenIds.add(node.id)
+        await tx`
+          UPDATE projects.steps SET
+            title = ${node.title},
+            description = ${node.description || ''},
+            status = ${node.status || 'pending'},
+            parent_id = ${parentId},
+            sort_order = ${sortOrder}
+          WHERE id = ${node.id} AND project_id = ${projectId}
+        `
+        if (node.children && node.children.length > 0) {
+          await processLevel(node.children, node.id, 0)
+        }
+      } else {
+        // Insert new step
+        const result = await tx`
+          INSERT INTO projects.steps (project_id, parent_id, title, description, status, sort_order, meta)
+          VALUES (${projectId}, ${parentId}, ${node.title}, ${node.description || ''}, ${node.status || 'pending'}, ${sortOrder}, '{}')
+          RETURNING id
+        `
+        const newId = result[0].id
+        seenIds.add(newId)
+
+        if (node.children && node.children.length > 0) {
+          await processLevel(node.children, newId, 0)
+        }
+      }
+    }
+  }
+
+  await processLevel(desiredTree, null, 0)
+
+  // Delete steps that are no longer in the tree
+  const toDelete = [...existingStepIds].filter(id => !seenIds.has(id))
+  if (toDelete.length > 0) {
+    await tx`DELETE FROM projects.steps WHERE id = ANY(${toDelete}) AND project_id = ${projectId}`
+  }
+}
+
+// Edit steps using AI — send current steps + user prompt to LLM, apply the diff
+app.post('/api/projects/:id/steps/edit-with-ai', async (c) => {
+  const client = getAnthropicClient()
+  if (!client) {
+    return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
+  }
+
+  const projectId = parseInt(c.req.param('id'))
+  const body = await c.req.json()
+  const { prompt } = body as { prompt: string }
+
+  if (!prompt || !prompt.trim()) {
+    return c.json({ error: 'Prompt is required' }, 400)
+  }
+
+  // Fetch project and current steps
+  const projectRows = await sql`SELECT * FROM projects.projects WHERE id = ${projectId}`
+  if (projectRows.length === 0) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+  const project = projectRows[0]
+
+  const stepRows = await sql`
+    SELECT * FROM projects.steps WHERE project_id = ${projectId} ORDER BY sort_order ASC, id ASC
+  `
+
+  const currentTree = buildStepTreeFromRows(stepRows)
+  const existingStepIds = new Set<number>(stepRows.map((r: any) => r.id))
+
+  const llmPrompt = `You are editing a project's step tree based on a user's instruction.
+
+PROJECT: ${project.title}
+${project.description ? `DESCRIPTION: ${project.description}` : ''}
+
+CURRENT STEPS (JSON tree — each step has an id, title, description, status, and children):
+${JSON.stringify(currentTree, null, 2)}
+
+USER'S EDIT REQUEST:
+${prompt}
+
+Return the UPDATED step tree as a JSON array. Rules:
+1. KEEP the "id" field on any step you are preserving or updating — this is how the system knows it's an existing step.
+2. OMIT the "id" field for brand-new steps you are adding.
+3. To DELETE a step, simply leave it out of the tree entirely.
+4. PRESERVE the "status" field on existing steps unless the user explicitly asked to change it. Valid statuses: "pending", "active", "completed", "skipped".
+5. Every step object MUST have these fields: "title" (string), "description" (string), "status" (string), "children" (array).
+6. Steps with an "id" must use the exact numeric id from the current tree.
+7. Only make changes the user asked for. Do not reorganize, rename, or remove steps unless the user's request calls for it.
+
+Return ONLY the JSON array. No markdown wrapping, no explanation outside the JSON.`
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: llmPrompt }],
+    })
+
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      return c.json({ error: 'Failed to parse LLM response' }, 500)
+    }
+
+    const desiredTree = JSON.parse(jsonMatch[0])
+
+    // Apply the diff inside a transaction
+    await sql.begin(async (tx) => {
+      await applyStepTreeDiff(tx, projectId, desiredTree, existingStepIds)
+    })
+
+    // Fetch and return the new full step list
+    const newSteps = await sql`
+      SELECT * FROM projects.steps WHERE project_id = ${projectId} ORDER BY sort_order ASC, id ASC
+    `
+
+    return c.json({ steps: newSteps })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return c.json({ error: `LLM edit failed: ${message}` }, 500)
+  }
+})
+
 // Add step(s) to a project — supports nested children
 app.post('/api/projects/:id/steps', async (c) => {
   const projectId = parseInt(c.req.param('id'))

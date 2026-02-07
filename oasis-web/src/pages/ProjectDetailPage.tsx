@@ -84,6 +84,15 @@ export default function ProjectDetailPage() {
     await loadProject()
   }
 
+  const handleEditStepsWithAI = async (prompt: string) => {
+    const result = await projects.editStepsWithAI(projectId, prompt)
+    if (result) {
+      setSteps(result)
+    } else {
+      await loadProject()
+    }
+  }
+
   return (
     <ProjectDetail
       project={project}
@@ -99,6 +108,7 @@ export default function ProjectDetailPage() {
       onUpdateProjectStatus={handleUpdateProjectStatus}
       onGenerateSteps={handleGenerateSteps}
       onAcceptSteps={handleAcceptSteps}
+      onEditStepsWithAI={handleEditStepsWithAI}
     />
   )
 }

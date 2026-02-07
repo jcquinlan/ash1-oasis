@@ -220,6 +220,27 @@ export function useProjects() {
     }
   }, [])
 
+  const editStepsWithAI = useCallback(async (
+    projectId: number,
+    prompt: string
+  ): Promise<ProjectStep[] | null> => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/steps/edit-with-ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to edit steps')
+      }
+      const data = await res.json()
+      return data.steps
+    } catch {
+      return null
+    }
+  }, [])
+
   const generateSteps = useCallback(async (
     title: string,
     description?: string
@@ -253,6 +274,7 @@ export function useProjects() {
     updateStep,
     deleteStep,
     reorderSteps,
+    editStepsWithAI,
     generateSteps,
   }
 }
