@@ -54,11 +54,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_projects_updated_at ON projects.projects;
 CREATE TRIGGER set_projects_updated_at
     BEFORE UPDATE ON projects.projects
     FOR EACH ROW
     EXECUTE FUNCTION projects.update_timestamp();
 
+DROP TRIGGER IF EXISTS set_steps_updated_at ON projects.steps;
 CREATE TRIGGER set_steps_updated_at
     BEFORE UPDATE ON projects.steps
     FOR EACH ROW
@@ -77,6 +79,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_step_completed_at ON projects.steps;
 CREATE TRIGGER set_step_completed_at
     BEFORE UPDATE ON projects.steps
     FOR EACH ROW
