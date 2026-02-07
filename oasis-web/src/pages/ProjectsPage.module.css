@@ -1,0 +1,25 @@
+/* ─── Section Title — Terminal comment style ───────────────────────────────── */
+.sectionTitle {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sectionTitle::before {
+  content: '#';
+  color: var(--accent-pink);
+  font-weight: 400;
+}
+
+.sectionTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-muted) 0%, transparent 100%);
+}
