@@ -9,7 +9,7 @@ export interface JournalEntry {
   updated_at: string
 }
 
-export interface JournalListProps extends HTMLAttributes<HTMLDivElement> {
+export interface JournalListProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   entries: JournalEntry[]
   onSelect: (entry: JournalEntry) => void
   onNew: () => void

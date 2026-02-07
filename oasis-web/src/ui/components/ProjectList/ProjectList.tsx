@@ -12,7 +12,7 @@ export interface ProjectSummary {
   updated_at: string
 }
 
-export interface ProjectListProps extends HTMLAttributes<HTMLDivElement> {
+export interface ProjectListProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   projects: ProjectSummary[]
   onSelect: (project: ProjectSummary) => void
   onNew: () => void
