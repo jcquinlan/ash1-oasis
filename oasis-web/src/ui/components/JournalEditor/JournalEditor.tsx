@@ -1,5 +1,5 @@
-import { forwardRef, useState, useEffect, useRef, type HTMLAttributes } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { forwardRef, useState, useEffect, useCallback, useRef, type HTMLAttributes } from 'react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
@@ -23,6 +23,70 @@ export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>,
   onDelete?: () => void
   onCancel: () => void
   saving?: boolean
+}
+
+function FormatToolbar({ editor }: { editor: Editor }) {
+  const setLink = useCallback(() => {
+    const existing = editor.getAttributes('link').href
+    const url = window.prompt('URL', existing || 'https://')
+    if (url === null) return
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+    }
+  }, [editor])
+
+  const btn = (
+    label: string,
+    action: () => void,
+    active: boolean,
+    title: string,
+  ) => (
+    <button
+      type="button"
+      className={`${styles.fmtBtn} ${active ? styles.fmtBtnActive : ''}`}
+      onClick={action}
+      title={title}
+    >
+      {label}
+    </button>
+  )
+
+  return (
+    <div className={styles.formatBar}>
+      <div className={styles.fmtGroup}>
+        {btn('B', () => editor.chain().focus().toggleBold().run(), editor.isActive('bold'), 'Bold')}
+        {btn('I', () => editor.chain().focus().toggleItalic().run(), editor.isActive('italic'), 'Italic')}
+        {btn('S', () => editor.chain().focus().toggleStrike().run(), editor.isActive('strike'), 'Strikethrough')}
+        {btn('Code', () => editor.chain().focus().toggleCode().run(), editor.isActive('code'), 'Inline code')}
+      </div>
+
+      <span className={styles.fmtDivider} />
+
+      <div className={styles.fmtGroup}>
+        {btn('H1', () => editor.chain().focus().toggleHeading({ level: 1 }).run(), editor.isActive('heading', { level: 1 }), 'Heading 1')}
+        {btn('H2', () => editor.chain().focus().toggleHeading({ level: 2 }).run(), editor.isActive('heading', { level: 2 }), 'Heading 2')}
+        {btn('H3', () => editor.chain().focus().toggleHeading({ level: 3 }).run(), editor.isActive('heading', { level: 3 }), 'Heading 3')}
+      </div>
+
+      <span className={styles.fmtDivider} />
+
+      <div className={styles.fmtGroup}>
+        {btn('List', () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'), 'Bullet list')}
+        {btn('1.', () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'), 'Numbered list')}
+        {btn('Task', () => editor.chain().focus().toggleTaskList().run(), editor.isActive('taskList'), 'Task list')}
+      </div>
+
+      <span className={styles.fmtDivider} />
+
+      <div className={styles.fmtGroup}>
+        {btn('Quote', () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'), 'Blockquote')}
+        {btn('Link', setLink, editor.isActive('link'), 'Insert link')}
+        {btn('---', () => editor.chain().focus().setHorizontalRule().run(), false, 'Horizontal rule')}
+      </div>
+    </div>
+  )
 }
 
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
@@ -130,6 +194,8 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
             className={styles.titleInput}
             autoFocus={!entry}
           />
+
+          {editor && <FormatToolbar editor={editor} />}
 
           <EditorContent editor={editor} className={styles.contentEditor} />
         </div>

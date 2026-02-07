@@ -110,6 +110,57 @@
   color: var(--fg-faint);
 }
 
+/* ─── Format Toolbar — Compact formatting controls ──────────────────────── */
+.formatBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-base);
+  flex-wrap: wrap;
+}
+
+.fmtGroup {
+  display: flex;
+  gap: 2px;
+}
+
+.fmtBtn {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--fg-subtle);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  line-height: var(--leading-normal);
+  transition:
+    color var(--transition-base),
+    background var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.fmtBtn:hover {
+  color: var(--fg-base);
+  background: var(--bg-surface);
+}
+
+.fmtBtnActive {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-bg);
+}
+
+.fmtDivider {
+  width: 1px;
+  height: 1rem;
+  background: var(--border-base);
+  flex-shrink: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    TipTap Editor — Rich text content area
    Targets the .tiptap element rendered by EditorContent
