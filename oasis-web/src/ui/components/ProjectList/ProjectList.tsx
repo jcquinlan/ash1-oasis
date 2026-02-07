@@ -16,10 +16,11 @@ export interface ProjectListProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   projects: ProjectSummary[]
   onSelect: (project: ProjectSummary) => void
   onNew: () => void
+  onUpdateProjectStatus?: (projectId: number, status: string) => void
 }
 
 export const ProjectList = forwardRef<HTMLDivElement, ProjectListProps>(
-  ({ projects, onSelect, onNew, className, ...props }, ref) => {
+  ({ projects, onSelect, onNew, onUpdateProjectStatus, className, ...props }, ref) => {
     const statusVariant = (status: string) => {
       switch (status) {
         case 'active': return 'success' as const
@@ -27,6 +28,12 @@ export const ProjectList = forwardRef<HTMLDivElement, ProjectListProps>(
         case 'completed': return 'default' as const
         default: return 'default' as const
       }
+    }
+
+    const nextStatus: Record<string, string> = {
+      'active': 'paused',
+      'paused': 'active',
+      'completed': 'active',
     }
 
     const progressPercent = (total: number, completed: number) => {
@@ -65,7 +72,14 @@ export const ProjectList = forwardRef<HTMLDivElement, ProjectListProps>(
               >
                 <div className={styles.projectHeader}>
                   <span className={styles.title}>{project.title}</span>
-                  <Badge variant={statusVariant(project.status)}>
+                  <Badge
+                    variant={statusVariant(project.status)}
+                    onClick={onUpdateProjectStatus && project.status !== 'archived' ? (e) => {
+                      e.stopPropagation()
+                      onUpdateProjectStatus(project.id, nextStatus[project.status] || 'active')
+                    } : undefined}
+                    title={onUpdateProjectStatus && project.status !== 'archived' ? `Click to ${nextStatus[project.status] === 'paused' ? 'pause' : nextStatus[project.status] === 'active' ? 'resume' : project.status}` : undefined}
+                  >
                     {project.status}
                   </Badge>
                 </div>
