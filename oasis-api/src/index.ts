@@ -430,14 +430,35 @@ app.delete('/api/projects/:id', async (c) => {
 
 // ─── Step endpoints ────────────────────────────────────────────────────────────
 
-// Add step(s) to a project
+// Add step(s) to a project — supports nested children
 app.post('/api/projects/:id/steps', async (c) => {
   const projectId = parseInt(c.req.param('id'))
   const body = await c.req.json()
 
   // Accept single step or array
-  const stepsInput = Array.isArray(body) ? body : [body]
+  const stepsInput: StepInput[] = Array.isArray(body) ? body : [body]
 
+  // Check if any steps have children — if so, use recursive insertion
+  const hasChildren = stepsInput.some((s: any) => s.children && s.children.length > 0)
+
+  if (hasChildren) {
+    // Determine parent_id for root-level insertion
+    const parentId = stepsInput[0]?.parent_id ?? null
+
+    // Get current max sort_order scoped to siblings
+    const maxResult = parentId
+      ? await sql`
+          SELECT COALESCE(MAX(sort_order), 0)::int as max_order
+          FROM projects.steps WHERE project_id = ${projectId} AND parent_id = ${parentId}`
+      : await sql`
+          SELECT COALESCE(MAX(sort_order), 0)::int as max_order
+          FROM projects.steps WHERE project_id = ${projectId} AND parent_id IS NULL`
+
+    const insertedSteps = await insertStepsTree(projectId, stepsInput, parentId, maxResult[0].max_order)
+    return c.json({ steps: insertedSteps }, 201)
+  }
+
+  // Flat insertion (original behavior)
   // Determine parent_id (all steps in a batch share the same parent)
   const parentId = stepsInput[0]?.parent_id ?? null
 

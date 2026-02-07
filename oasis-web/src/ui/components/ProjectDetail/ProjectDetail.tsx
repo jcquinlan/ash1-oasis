@@ -30,6 +30,12 @@ export interface ProjectData {
   updated_at: string
 }
 
+export interface NestedStep {
+  title: string
+  description?: string
+  children?: NestedStep[]
+}
+
 export interface ProjectDetailProps extends HTMLAttributes<HTMLDivElement> {
   project: ProjectData
   stepTree: StepTreeNode[]
@@ -42,6 +48,8 @@ export interface ProjectDetailProps extends HTMLAttributes<HTMLDivElement> {
   onDeleteStep: (stepId: number) => void
   onMoveStep: (stepId: number, direction: 'up' | 'down') => void
   onUpdateProjectStatus: (status: string) => void
+  onGenerateSteps?: (title: string, description: string) => Promise<NestedStep[] | null>
+  onAcceptSteps?: (steps: NestedStep[]) => Promise<void>
 }
 
 // Recursive step renderer
@@ -229,6 +237,71 @@ function StepNode({
   )
 }
 
+// Suggested step renderer — renders AI-generated steps as interactive React components
+function SuggestedStepNode({
+  step,
+  depth,
+  onRemove,
+  expandedSuggestion,
+  onToggleExpand,
+}: {
+  step: NestedStep
+  depth: number
+  onRemove: (step: NestedStep) => void
+  expandedSuggestion: NestedStep | null
+  onToggleExpand: (step: NestedStep) => void
+}) {
+  const isExpanded = expandedSuggestion === step
+  const hasChildren = (step.children?.length ?? 0) > 0
+
+  return (
+    <>
+      <div
+        className={styles.suggestedStep}
+        style={{ paddingLeft: `calc(var(--space-4) + ${depth * 20}px)` }}
+      >
+        <span className={styles.suggestedStepBullet}>+</span>
+
+        <div
+          className={styles.suggestedStepContent}
+          onClick={() => onToggleExpand(step)}
+        >
+          <span className={styles.suggestedStepTitle}>
+            {step.title}
+            {hasChildren && (
+              <span className={styles.childCount}> ({step.children!.length})</span>
+            )}
+          </span>
+          {isExpanded && step.description && (
+            <p className={styles.suggestedStepDescription}>{step.description}</p>
+          )}
+        </div>
+
+        <div className={styles.suggestedStepActions}>
+          <button
+            className={styles.removeSuggestedButton}
+            onClick={() => onRemove(step)}
+            title="Remove suggestion"
+          >
+            x
+          </button>
+        </div>
+      </div>
+
+      {hasChildren && step.children!.map((child, idx) => (
+        <SuggestedStepNode
+          key={`${child.title}-${idx}`}
+          step={child}
+          depth={depth + 1}
+          onRemove={onRemove}
+          expandedSuggestion={expandedSuggestion}
+          onToggleExpand={onToggleExpand}
+        />
+      ))}
+    </>
+  )
+}
+
 export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
   ({
     project,
@@ -242,6 +315,8 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
     onDeleteStep,
     onMoveStep,
     onUpdateProjectStatus,
+    onGenerateSteps,
+    onAcceptSteps,
     className,
     ...props
   }, ref) => {
@@ -252,6 +327,10 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
     const [addingToParent, setAddingToParent] = useState<number | null>(null)
     const [newChildTitle, setNewChildTitle] = useState('')
     const [newChildDesc, setNewChildDesc] = useState('')
+    const [suggestedSteps, setSuggestedSteps] = useState<NestedStep[] | null>(null)
+    const [generating, setGenerating] = useState(false)
+    const [accepting, setAccepting] = useState(false)
+    const [expandedSuggestion, setExpandedSuggestion] = useState<NestedStep | null>(null)
 
     const completedCount = allSteps.filter(s => s.status === 'completed').length
     const totalCount = allSteps.length
@@ -285,6 +364,49 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
       setAddingToParent(null)
       setNewChildTitle('')
       setNewChildDesc('')
+    }
+
+    const handleGenerate = async () => {
+      if (!onGenerateSteps) return
+      setGenerating(true)
+      const steps = await onGenerateSteps(project.title, project.description)
+      setGenerating(false)
+      if (steps && steps.length > 0) {
+        setSuggestedSteps(steps)
+      }
+    }
+
+    const handleAcceptSteps = async () => {
+      if (!onAcceptSteps || !suggestedSteps) return
+      setAccepting(true)
+      await onAcceptSteps(suggestedSteps)
+      setAccepting(false)
+      setSuggestedSteps(null)
+    }
+
+    const handleDismissSteps = () => {
+      setSuggestedSteps(null)
+    }
+
+    // Remove a suggested step (works for both root and nested)
+    const removeSuggestedStep = (target: NestedStep) => {
+      if (!suggestedSteps) return
+
+      const removeFromList = (list: NestedStep[]): NestedStep[] => {
+        return list
+          .filter(s => s !== target)
+          .map(s => ({
+            ...s,
+            children: s.children ? removeFromList(s.children) : [],
+          }))
+      }
+
+      const updated = removeFromList(suggestedSteps)
+      if (updated.length === 0) {
+        setSuggestedSteps(null)
+      } else {
+        setSuggestedSteps(updated)
+      }
     }
 
     const statusVariant = (status: string) => {
@@ -376,13 +498,25 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
         <div className={styles.stepsSection}>
           <div className={styles.stepsHeader}>
             <h3 className={styles.stepsTitle}>Steps</h3>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowAddStep(!showAddStep)}
-            >
-              {showAddStep ? 'Cancel' : '+ Step'}
-            </Button>
+            <div className={styles.stepsHeaderActions}>
+              {onGenerateSteps && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={generating}
+                >
+                  {generating ? 'Generating...' : '~ Generate with AI'}
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowAddStep(!showAddStep)}
+              >
+                {showAddStep ? 'Cancel' : '+ Step'}
+              </Button>
+            </div>
           </div>
 
           {showAddStep && (
@@ -408,6 +542,44 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
               >
                 Add Step
               </Button>
+            </div>
+          )}
+
+          {/* Suggested steps from AI */}
+          {suggestedSteps && (
+            <div className={styles.suggestedPanel}>
+              <div className={styles.suggestedHeader}>
+                <span className={styles.suggestedLabel}>Suggested Steps</span>
+                <div className={styles.suggestedActions}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAcceptSteps}
+                    disabled={accepting}
+                  >
+                    {accepting ? 'Adding...' : 'Accept All'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleDismissSteps}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+              <div className={styles.suggestedList}>
+                {suggestedSteps.map((step, idx) => (
+                  <SuggestedStepNode
+                    key={`${step.title}-${idx}`}
+                    step={step}
+                    depth={0}
+                    onRemove={removeSuggestedStep}
+                    expandedSuggestion={expandedSuggestion}
+                    onToggleExpand={(s) => setExpandedSuggestion(expandedSuggestion === s ? null : s)}
+                  />
+                ))}
+              </div>
             </div>
           )}
 

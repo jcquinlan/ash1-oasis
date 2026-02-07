@@ -75,6 +75,15 @@ export default function ProjectDetailPage() {
     navigate('/projects')
   }
 
+  const handleGenerateSteps = async (title: string, description: string) => {
+    return await projects.generateSteps(title, description)
+  }
+
+  const handleAcceptSteps = async (steps: Array<{ title: string; description?: string; children?: any[] }>) => {
+    await projects.addNestedSteps(projectId, steps)
+    await loadProject()
+  }
+
   return (
     <ProjectDetail
       project={project}
@@ -88,6 +97,8 @@ export default function ProjectDetailPage() {
       onDeleteStep={handleDeleteStep}
       onMoveStep={handleMoveStep}
       onUpdateProjectStatus={handleUpdateProjectStatus}
+      onGenerateSteps={handleGenerateSteps}
+      onAcceptSteps={handleAcceptSteps}
     />
   )
 }

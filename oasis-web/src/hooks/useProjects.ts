@@ -157,6 +157,25 @@ export function useProjects() {
     }
   }, [])
 
+  // Add nested steps (with children) — used for accepting AI-generated steps
+  const addNestedSteps = useCallback(async (
+    projectId: number,
+    steps: Array<{ title: string; description?: string; children?: any[] }>
+  ): Promise<ProjectStep[] | null> => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/steps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(steps),
+      })
+      if (!res.ok) throw new Error('Failed to add nested steps')
+      const result = await res.json()
+      return result.steps
+    } catch {
+      return null
+    }
+  }, [])
+
   const updateStep = useCallback(async (
     projectId: number,
     stepId: number,
@@ -230,6 +249,7 @@ export function useProjects() {
     updateProject,
     deleteProject,
     addSteps,
+    addNestedSteps,
     updateStep,
     deleteStep,
     reorderSteps,
