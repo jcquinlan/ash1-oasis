@@ -4,10 +4,52 @@ import postgres from 'postgres'
 
 const app = new Hono()
 
-const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@oasis:5432/postgres')
+// Fail fast if DATABASE_URL is not configured
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required')
+}
+const sql = postgres(process.env.DATABASE_URL)
 
-app.use('/*', cors())
+// Restrict CORS to configured origins (falls back to allow-all in development)
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : []
 
+app.use(
+  '/*',
+  cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  })
+)
+
+// API key authentication middleware - skip for health check
+app.use('/api/*', async (c, next) => {
+  if (c.req.path === '/api/health') return next()
+
+  const apiKey = process.env.API_KEY
+  if (!apiKey) {
+    // If no API key is configured, warn but allow (for initial setup)
+    console.warn('WARNING: No API_KEY configured. API is unauthenticated.')
+    return next()
+  }
+
+  const providedKey = c.req.header('X-API-Key')
+  if (providedKey !== apiKey) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  return next()
+})
+
+// Read a /proc file safely using Bun.file() instead of shelling out
+async function readProcFile(filename: string): Promise<string> {
+  const procPath = process.env.PROC_PATH || '/proc'
+  const file = Bun.file(`${procPath}/${filename}`)
+  return (await file.text()).trim()
+}
+
+// Shell exec only for commands that genuinely need a shell (docker)
 async function exec(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn(['sh', '-c', cmd], {
     stdout: 'pipe',
@@ -23,7 +65,7 @@ app.get('/api/containers', async (c) => {
   const { stdout } = await exec(
     `docker ps -a --format '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}","status":"{{.Status}}","state":"{{.State}}","ports":"{{.Ports}}"}'`
   )
-  
+
   const containers = stdout
     .split('\n')
     .filter(Boolean)
@@ -40,27 +82,26 @@ app.get('/api/containers', async (c) => {
 })
 
 app.get('/api/system', async (c) => {
-  const procPath = process.env.PROC_PATH || '/proc'
-  const [uptimeResult, memResult, loadResult, diskResult] = await Promise.all([
-    exec(`cat ${procPath}/uptime`),
-    exec(`cat ${procPath}/meminfo`),
-    exec(`cat ${procPath}/loadavg`),
+  const [uptimeRaw, memRaw, loadRaw, diskResult] = await Promise.all([
+    readProcFile('uptime'),
+    readProcFile('meminfo'),
+    readProcFile('loadavg'),
     exec("df -h / | tail -1 | awk '{print $2,$3,$4,$5}'"),
   ])
 
-  const uptimeSeconds = parseFloat(uptimeResult.stdout.split(' ')[0])
+  const uptimeSeconds = parseFloat(uptimeRaw.split(' ')[0])
   const days = Math.floor(uptimeSeconds / 86400)
   const hours = Math.floor((uptimeSeconds % 86400) / 3600)
   const minutes = Math.floor((uptimeSeconds % 3600) / 60)
   const uptime = `${days}d ${hours}h ${minutes}m`
 
-  const memLines = memResult.stdout.split('\n')
+  const memLines = memRaw.split('\n')
   const memTotal = parseInt(memLines.find(l => l.startsWith('MemTotal'))?.split(/\s+/)[1] || '0') / 1024
   const memAvailable = parseInt(memLines.find(l => l.startsWith('MemAvailable'))?.split(/\s+/)[1] || '0') / 1024
   const memUsed = memTotal - memAvailable
   const memPercent = Math.round((memUsed / memTotal) * 100)
 
-  const loadAvg = loadResult.stdout.split(' ').slice(0, 3).join(' ')
+  const loadAvg = loadRaw.split(' ').slice(0, 3).join(' ')
 
   const [diskTotal, diskUsed, diskAvail, diskPercent] = diskResult.stdout.split(' ')
 
@@ -86,7 +127,7 @@ app.get('/api/health', (c) => c.json({ status: 'ok' }))
 // Journal CRUD endpoints
 app.get('/api/journal', async (c) => {
   const page = parseInt(c.req.query('page') || '1')
-  const limit = parseInt(c.req.query('limit') || '20')
+  const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
   const offset = (page - 1) * limit
 
   const [entries, countResult] = await Promise.all([
@@ -119,8 +160,11 @@ app.post('/api/journal', async (c) => {
   const body = await c.req.json()
   const { title, content } = body as { title: string; content: string }
 
-  if (!title || !content) {
-    return c.json({ error: 'Title and content are required' }, 400)
+  if (!title || typeof title !== 'string' || title.length > 255) {
+    return c.json({ error: 'Title is required and must be under 255 characters' }, 400)
+  }
+  if (!content || typeof content !== 'string' || content.length > 50000) {
+    return c.json({ error: 'Content is required and must be under 50,000 characters' }, 400)
   }
 
   const result = await sql`
@@ -137,8 +181,11 @@ app.put('/api/journal/:id', async (c) => {
   const body = await c.req.json()
   const { title, content } = body as { title: string; content: string }
 
-  if (!title || !content) {
-    return c.json({ error: 'Title and content are required' }, 400)
+  if (!title || typeof title !== 'string' || title.length > 255) {
+    return c.json({ error: 'Title is required and must be under 255 characters' }, 400)
+  }
+  if (!content || typeof content !== 'string' || content.length > 50000) {
+    return c.json({ error: 'Content is required and must be under 50,000 characters' }, 400)
   }
 
   const result = await sql`

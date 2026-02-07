@@ -1,6 +1,4 @@
-FROM oven/bun:latest
-
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1.1.45-slim
 
 WORKDIR /app
 
@@ -9,6 +7,10 @@ RUN bun install
 
 # Source files will be mounted as volume for hot reload
 COPY . .
+
+# Run as non-root user
+RUN addgroup --system oasis && adduser --system --ingroup oasis oasis
+USER oasis
 
 ENV PORT=3001
 EXPOSE 3001

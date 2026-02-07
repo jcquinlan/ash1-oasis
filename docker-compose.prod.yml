@@ -59,6 +59,30 @@ services:
     restart: "no"
 
   # ---------------------------------------------------------------------------
+  # Docker Socket Proxy
+  # ---------------------------------------------------------------------------
+  # Restricts Docker API access to read-only container listing.
+  # The API container connects here instead of mounting the raw Docker socket.
+  docker-socket-proxy:
+    container_name: oasis-docker-proxy
+    image: tecnativa/docker-socket-proxy:0.2
+    restart: always
+    environment:
+      - CONTAINERS=1     # Allow GET /containers
+      - POST=0           # Block all POST requests
+      - IMAGES=0
+      - NETWORKS=0
+      - VOLUMES=0
+      - SERVICES=0
+      - TASKS=0
+      - NODES=0
+      - SWARM=0
+      - BUILD=0
+      - EXEC=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # ---------------------------------------------------------------------------
   # Web Frontend
   # ---------------------------------------------------------------------------
   # Pulls from ghcr.io/jcquinlan/oasis-web
@@ -84,7 +108,8 @@ services:
   # API Server
   # ---------------------------------------------------------------------------
   # Pulls from ghcr.io/jcquinlan/oasis-api
-  # Mounts docker socket and /proc for system monitoring capabilities
+  # Connects to Docker socket proxy for container monitoring.
+  # Mounts only the specific /proc files needed for system metrics.
   oasis-api:
     container_name: oasis-api
     image: ghcr.io/jcquinlan/oasis-api:${IMAGE_TAG:-latest}
@@ -92,17 +117,23 @@ services:
       - "127.0.0.1:8082:3001"
     restart: always
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc:/host/proc:ro
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /proc/loadavg:/host/proc/loadavg:ro
     environment:
       - NODE_ENV=production
       - PROC_PATH=/host/proc
       - DATABASE_URL=${DATABASE_URL}
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      - API_KEY=${API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       oasis:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+      docker-socket-proxy:
+        condition: service_started
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 30s

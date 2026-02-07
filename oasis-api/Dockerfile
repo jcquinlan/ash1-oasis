@@ -1,13 +1,15 @@
-FROM oven/bun:latest
-
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1.1.45-slim
 
 WORKDIR /app
 
-COPY package.json ./
-RUN bun install
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
 
 COPY src ./src
+
+# Run as non-root user
+RUN addgroup --system oasis && adduser --system --ingroup oasis oasis
+USER oasis
 
 ENV PORT=3001
 EXPOSE 3001

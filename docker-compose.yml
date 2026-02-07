@@ -35,6 +35,25 @@ services:
       '
     restart: "no"
 
+  # Docker socket proxy - restricts API container to read-only container listing
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.2
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1     # Allow GET /containers
+      - POST=0           # Block all POST requests
+      - IMAGES=0
+      - NETWORKS=0
+      - VOLUMES=0
+      - SERVICES=0
+      - TASKS=0
+      - NODES=0
+      - SWARM=0
+      - BUILD=0
+      - EXEC=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   oasis-web:
     build:
       context: ./oasis-web
@@ -59,14 +78,20 @@ services:
       - "127.0.0.1:3001:3001"
     volumes:
       - ./oasis-api/src:/app/src:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc:/host/proc:ro
+      - /proc/uptime:/host/proc/uptime:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /proc/loadavg:/host/proc/loadavg:ro
     environment:
       - NODE_ENV=development
       - PROC_PATH=/host/proc
       - DATABASE_URL=${DATABASE_URL}
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      - API_KEY=${API_KEY:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
     depends_on:
       oasis:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+      docker-socket-proxy:
+        condition: service_started

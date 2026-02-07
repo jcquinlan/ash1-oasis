@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.1.45-slim AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN bun run build
 
 # Production stage - serve static files with nginx
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
 RUN apk add --no-cache curl
 
