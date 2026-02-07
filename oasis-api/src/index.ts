@@ -272,16 +272,17 @@ app.get('/api/projects', async (c) => {
   const projects = status
     ? await sql`
         SELECT p.*,
-          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id) as total_steps,
-          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.status = 'completed') as completed_steps
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL) as total_steps,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL AND s.status = 'completed') as completed_steps
         FROM projects.projects p
-        WHERE p.status = ${status}
+        WHERE p.status = ${status} AND p.deleted_at IS NULL
         ORDER BY p.updated_at DESC`
     : await sql`
         SELECT p.*,
-          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id) as total_steps,
-          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.status = 'completed') as completed_steps
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL) as total_steps,
+          (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL AND s.status = 'completed') as completed_steps
         FROM projects.projects p
+        WHERE p.deleted_at IS NULL
         ORDER BY
           CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
           p.updated_at DESC`
@@ -293,7 +294,7 @@ app.get('/api/projects', async (c) => {
 app.get('/api/projects/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   const projects = await sql`
-    SELECT * FROM projects.projects WHERE id = ${id}
+    SELECT * FROM projects.projects WHERE id = ${id} AND deleted_at IS NULL
   `
   if (projects.length === 0) {
     return c.json({ error: 'Project not found' }, 404)
@@ -301,7 +302,7 @@ app.get('/api/projects/:id', async (c) => {
 
   const steps = await sql`
     SELECT * FROM projects.steps
-    WHERE project_id = ${id}
+    WHERE project_id = ${id} AND deleted_at IS NULL
     ORDER BY sort_order ASC, id ASC
   `
 
@@ -405,7 +406,7 @@ app.put('/api/projects/:id', async (c) => {
       description = COALESCE(${description ?? null}, description),
       status = COALESCE(${status ?? null}, status),
       meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
-    WHERE id = ${id}
+    WHERE id = ${id} AND deleted_at IS NULL
     RETURNING *
   `
 
@@ -416,15 +417,24 @@ app.put('/api/projects/:id', async (c) => {
   return c.json({ project: result[0] })
 })
 
-// Delete project (cascades to steps)
+// Soft-delete project and its steps
 app.delete('/api/projects/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   const result = await sql`
-    DELETE FROM projects.projects WHERE id = ${id} RETURNING id
+    UPDATE projects.projects SET deleted_at = NOW()
+    WHERE id = ${id} AND deleted_at IS NULL
+    RETURNING id
   `
   if (result.length === 0) {
     return c.json({ error: 'Project not found' }, 404)
   }
+
+  // Soft-delete all steps belonging to this project
+  await sql`
+    UPDATE projects.steps SET deleted_at = NOW()
+    WHERE project_id = ${id} AND deleted_at IS NULL
+  `
+
   return c.json({ success: true })
 })
 
@@ -492,7 +502,7 @@ app.put('/api/projects/:id/steps/:stepId', async (c) => {
           sort_order = COALESCE(${sort_order ?? null}, sort_order),
           parent_id = ${parent_id ?? null},
           meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
-        WHERE id = ${stepId}
+        WHERE id = ${stepId} AND deleted_at IS NULL
         RETURNING *
       `
     : await sql`
@@ -502,7 +512,7 @@ app.put('/api/projects/:id/steps/:stepId', async (c) => {
           status = COALESCE(${status ?? null}, status),
           sort_order = COALESCE(${sort_order ?? null}, sort_order),
           meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
-        WHERE id = ${stepId}
+        WHERE id = ${stepId} AND deleted_at IS NULL
         RETURNING *
       `
 
@@ -513,11 +523,20 @@ app.put('/api/projects/:id/steps/:stepId', async (c) => {
   return c.json({ step: result[0] })
 })
 
-// Delete a step
+// Soft-delete a step and its children (recursive via CTE)
 app.delete('/api/projects/:id/steps/:stepId', async (c) => {
   const stepId = parseInt(c.req.param('stepId'))
   const result = await sql`
-    DELETE FROM projects.steps WHERE id = ${stepId} RETURNING id
+    WITH RECURSIVE descendants AS (
+      SELECT id FROM projects.steps WHERE id = ${stepId} AND deleted_at IS NULL
+      UNION ALL
+      SELECT s.id FROM projects.steps s
+        INNER JOIN descendants d ON s.parent_id = d.id
+      WHERE s.deleted_at IS NULL
+    )
+    UPDATE projects.steps SET deleted_at = NOW()
+    WHERE id IN (SELECT id FROM descendants)
+    RETURNING id
   `
   if (result.length === 0) {
     return c.json({ error: 'Step not found' }, 404)
