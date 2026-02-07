@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { JournalEditor } from '../ui'
 import { useJournal, type JournalEntry } from '../hooks/useJournal'
+import styles from './JournalEditPage.module.css'
 
 export default function JournalEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,12 +46,14 @@ export default function JournalEditPage() {
   if (!isNew && !entry) return null
 
   return (
-    <JournalEditor
-      entry={entry}
-      onSave={handleSave}
-      onDelete={entry ? handleDelete : undefined}
-      onCancel={() => navigate('/journal')}
-      saving={saving}
-    />
+    <div className={styles.writingView}>
+      <JournalEditor
+        entry={entry}
+        onSave={handleSave}
+        onDelete={entry ? handleDelete : undefined}
+        onCancel={() => navigate('/journal')}
+        saving={saving}
+      />
+    </div>
   )
 }

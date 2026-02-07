@@ -1,6 +1,4 @@
-import { forwardRef, useState, useEffect, type HTMLAttributes } from 'react'
-import { Input } from '../Input/Input'
-import { TextArea } from '../TextArea/TextArea'
+import { forwardRef, useState, useEffect, useRef, type HTMLAttributes } from 'react'
 import { Button } from '../Button/Button'
 import styles from './JournalEditor.module.css'
 
@@ -24,6 +22,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
   ({ entry, onSave, onDelete, onCancel, saving = false, className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     useEffect(() => {
       if (entry) {
@@ -42,55 +41,69 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
       }
     }
 
+    const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        textareaRef.current?.focus()
+      }
+    }
+
     const isValid = title.trim() && content.trim()
 
     return (
       <div ref={ref} className={`${styles.editor} ${className || ''}`} {...props}>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <Input
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Entry title..."
-            required
-          />
+        <div className={styles.toolbar}>
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={onCancel}
+            aria-label="Back to journal"
+          >
+            &larr; Journal
+          </button>
 
-          <TextArea
-            label="Content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write your thoughts..."
-            required
-          />
-
-          <div className={styles.actions}>
-            <div className={styles.leftActions}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={!isValid || saving}
-              >
-                {saving ? 'Saving...' : entry ? 'Update' : 'Create'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onCancel}
-              >
-                Cancel
-              </Button>
-            </div>
-
+          <div className={styles.toolbarActions}>
             {entry && onDelete && (
-              <Button
+              <button
                 type="button"
-                variant="danger"
+                className={styles.deleteButton}
                 onClick={onDelete}
               >
                 Delete
-              </Button>
+              </button>
             )}
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              disabled={!isValid || saving}
+              onClick={handleSubmit}
+            >
+              {saving ? 'Saving...' : entry ? 'Save' : 'Create'}
+            </Button>
           </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            placeholder="Title"
+            className={styles.titleInput}
+            autoFocus={!entry}
+            required
+          />
+
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Write your thoughts..."
+            className={styles.contentArea}
+            required
+          />
         </form>
       </div>
     )

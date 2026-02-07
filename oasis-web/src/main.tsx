@@ -22,9 +22,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="projects/:id/edit" element={<ProjectEditPage />} />
           <Route path="journal" element={<JournalPage />} />
-          <Route path="journal/new" element={<JournalEditPage />} />
-          <Route path="journal/:id" element={<JournalEditPage />} />
         </Route>
+        <Route path="journal/new" element={<JournalEditPage />} />
+        <Route path="journal/:id" element={<JournalEditPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

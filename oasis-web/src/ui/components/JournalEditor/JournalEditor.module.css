@@ -1,34 +1,146 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   JournalEditor Component — Pastel Terminal Style
-   Form for creating and editing journal entries
+   JournalEditor — Distraction-Free Writing
+   Full-viewport writing surface, minimal chrome, spacious and focused
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .editor {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-base);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 2px 8px rgba(0, 0, 0, 0.03);
-}
-
-.form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  flex: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.actions {
+/* ─── Toolbar — Subtle top bar that stays out of the way ────────────────── */
+.toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-base);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-base);
+  background: var(--bg-base);
+  opacity: 0.6;
+  transition: opacity var(--transition-slow);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.leftActions {
+.toolbar:hover,
+.toolbar:focus-within {
+  opacity: 1;
+}
+
+.backButton {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--fg-subtle);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  letter-spacing: var(--tracking-wider);
+  transition:
+    color var(--transition-base),
+    background var(--transition-base);
+}
+
+.backButton:hover {
+  color: var(--fg-base);
+  background: var(--bg-elevated);
+}
+
+.toolbarActions {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
+}
+
+.deleteButton {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--fg-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  letter-spacing: var(--tracking-wider);
+  transition:
+    color var(--transition-base),
+    background var(--transition-base);
+}
+
+.deleteButton:hover {
+  color: var(--accent-pink);
+  background: var(--accent-pink-bg);
+}
+
+/* ─── Form — The writing surface ────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+/* ─── Title — Large, borderless heading ─────────────────────────────────── */
+.titleInput {
+  font-family: inherit;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--fg-base);
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-6);
+  letter-spacing: var(--tracking-tight);
+}
+
+.titleInput::placeholder {
+  color: var(--fg-faint);
+}
+
+/* ─── Content — Expansive writing area ──────────────────────────────────── */
+.contentArea {
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--fg-base);
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  flex: 1;
+  min-height: 60vh;
+  padding: 0;
+  resize: none;
+}
+
+.contentArea::placeholder {
+  color: var(--fg-faint);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .form {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .titleInput {
+    font-size: var(--text-xl);
+  }
+
+  .toolbar {
+    padding: var(--space-3) var(--space-4);
+  }
 }
