@@ -26,9 +26,27 @@ export const JournalList = forwardRef<HTMLDivElement, JournalListProps>(
       })
     }
 
+    const stripMarkdown = (text: string) => {
+      return text
+        .replace(/^#{1,6}\s+/gm, '')       // headings
+        .replace(/(\*\*|__)(.*?)\1/g, '$2') // bold
+        .replace(/(\*|_)(.*?)\1/g, '$2')    // italic
+        .replace(/~~(.*?)~~/g, '$1')        // strikethrough
+        .replace(/`{1,3}[^`]*`{1,3}/g, '') // code
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images
+        .replace(/^[-*+]\s+/gm, '')         // unordered lists
+        .replace(/^\d+\.\s+/gm, '')         // ordered lists
+        .replace(/^>\s+/gm, '')             // blockquotes
+        .replace(/\n{2,}/g, ' ')            // collapse newlines
+        .replace(/\n/g, ' ')
+        .trim()
+    }
+
     const truncate = (text: string, length: number) => {
-      if (text.length <= length) return text
-      return text.substring(0, length) + '...'
+      const plain = stripMarkdown(text)
+      if (plain.length <= length) return plain
+      return plain.substring(0, length) + '...'
     }
 
     return (
