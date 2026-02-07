@@ -50,6 +50,7 @@ services:
         condition: service_healthy
     entrypoint: >
       sh -c '
+        export PGPASSWORD=$$POSTGRES_PASSWORD
         for f in /migrations/*.sql; do
           echo "Running migration: $$f"
           psql -h oasis -U $$POSTGRES_USER -d $$POSTGRES_DB -f "$$f"
