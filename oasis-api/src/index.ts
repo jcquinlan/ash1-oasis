@@ -198,23 +198,49 @@ app.post('/api/projects/generate-steps', async (c) => {
     return c.json({ error: 'Title is required' }, 400)
   }
 
-  const prompt = `You are helping someone plan a medium-term project for their homelab/personal development. The project should be completable in roughly 1-3 weeks of evening work.
+  const prompt = `You are a decisive, opinionated project planner. Someone wants to accomplish a goal and you need to build them a SPECIFIC, CONCRETE plan — not a vague roadmap.
 
 Project: ${title}
 ${description ? `Description: ${description}` : ''}
 
-Generate 5-12 concrete, actionable steps to complete this project. Each step should be:
-- Specific enough to start working on immediately
-- Roughly 1-3 hours of work each
-- Ordered logically (dependencies first)
-- Written as imperative actions ("Set up...", "Create...", "Configure...")
+Your job:
+1. MAKE DECISIONS for them. If the goal is ambiguous, pick the best specific path. For example:
+   - "Learn advanced high school math" → decide it's AP Calculus BC, and recommend specific resources like "Stewart's Calculus: Early Transcendentals, 8th edition"
+   - "Build a budgeting app" → pick a specific stack (e.g. "Build with Next.js + SQLite using the Plaid API for bank sync")
+   - "Set up home monitoring" → pick specific tools ("Install Prometheus + Grafana on the homelab")
 
-Return ONLY a JSON array of objects with "title" (string) and "description" (string, 1-2 sentences of context/tips). No markdown, no explanation, just the JSON array.`
+2. Be SPECIFIC in every step. Name actual tools, books, libraries, commands, websites. Not "find a good resource" but "work through chapters 1-3 of [specific book]". Not "set up the database" but "create a PostgreSQL schema with users, transactions, and categories tables".
+
+3. Use NESTING to break complex steps into sub-steps. A top-level step is a milestone. Sub-steps are the specific actions to get there. Not everything needs sub-steps — only nest when a step genuinely has multiple distinct parts.
+
+4. Target roughly 1-3 weeks of evening work total. Each leaf step should be ~1-3 hours.
+
+Return ONLY a JSON array. Each object has:
+- "title": string (imperative action, specific)
+- "description": string (1-2 sentences — tips, specific resources, gotchas)
+- "children": array of the same shape (or empty array if no sub-steps)
+
+Example structure:
+[
+  {
+    "title": "Set up local K3s cluster on the homelab server",
+    "description": "K3s is the lightest way to run real Kubernetes. Install on your main server with: curl -sfL https://get.k3s.io | sh -",
+    "children": [
+      {
+        "title": "Install K3s and verify the node is Ready",
+        "description": "Run the install script, then 'sudo k3s kubectl get nodes' to confirm. Should show Ready within 30 seconds.",
+        "children": []
+      }
+    ]
+  }
+]
+
+No markdown wrapping, no explanation outside the JSON. Just the array.`
 
   try {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -226,7 +252,11 @@ Return ONLY a JSON array of objects with "title" (string) and "description" (str
       return c.json({ error: 'Failed to parse LLM response' }, 500)
     }
 
-    const steps = JSON.parse(jsonMatch[0]) as Array<{ title: string; description: string }>
+    const steps = JSON.parse(jsonMatch[0]) as Array<{
+      title: string
+      description: string
+      children: Array<{ title: string; description: string; children: any[] }>
+    }>
 
     return c.json({ steps })
   } catch (err) {
@@ -278,6 +308,44 @@ app.get('/api/projects/:id', async (c) => {
   return c.json({ project: projects[0], steps })
 })
 
+// Recursively insert steps with children
+type StepInput = {
+  title: string
+  description?: string
+  meta?: Record<string, unknown>
+  parent_id?: number | null
+  children?: StepInput[]
+}
+
+async function insertStepsTree(
+  projectId: number,
+  steps: StepInput[],
+  parentId: number | null,
+  startOrder: number
+): Promise<any[]> {
+  const allInserted: any[] = []
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]
+    const sortOrder = startOrder + (i + 1) * 10
+
+    const result = await sql`
+      INSERT INTO projects.steps (project_id, parent_id, title, description, sort_order, meta)
+      VALUES (${projectId}, ${parentId}, ${s.title}, ${s.description || ''}, ${sortOrder}, ${JSON.stringify(s.meta || {})})
+      RETURNING *
+    `
+    allInserted.push(result[0])
+
+    // Recursively insert children
+    if (s.children && s.children.length > 0) {
+      const childRows = await insertStepsTree(projectId, s.children, result[0].id, 0)
+      allInserted.push(...childRows)
+    }
+  }
+
+  return allInserted
+}
+
 // Create project
 app.post('/api/projects', async (c) => {
   const body = await c.req.json()
@@ -285,7 +353,7 @@ app.post('/api/projects', async (c) => {
     title: string
     description?: string
     meta?: Record<string, unknown>
-    steps?: Array<{ title: string; description?: string; meta?: Record<string, unknown>; parent_id?: number | null }>
+    steps?: StepInput[]
   }
 
   if (!title) {
@@ -299,22 +367,10 @@ app.post('/api/projects', async (c) => {
   `
   const project = result[0]
 
-  // Bulk-insert steps if provided
+  // Recursively insert steps (supports nested children)
   let insertedSteps: any[] = []
   if (steps && steps.length > 0) {
-    const stepValues = steps.map((s, i) => ({
-      project_id: project.id,
-      parent_id: s.parent_id ?? null,
-      title: s.title,
-      description: s.description || '',
-      sort_order: (i + 1) * 10,
-      meta: JSON.stringify(s.meta || {}),
-    }))
-
-    insertedSteps = await sql`
-      INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'parent_id', 'title', 'description', 'sort_order', 'meta')}
-      RETURNING *
-    `
+    insertedSteps = await insertStepsTree(project.id, steps, null, 0)
   }
 
   return c.json({ project, steps: insertedSteps }, 201)

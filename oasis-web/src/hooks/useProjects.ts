@@ -94,7 +94,7 @@ export function useProjects() {
     title: string
     description?: string
     meta?: Record<string, unknown>
-    steps?: Array<{ title: string; description?: string; meta?: Record<string, unknown> }>
+    steps?: Array<{ title: string; description?: string; children?: any[]; meta?: Record<string, unknown> }>
   }): Promise<{ project: Project; steps: ProjectStep[] } | null> => {
     try {
       const res = await fetch('/api/projects', {
@@ -204,7 +204,7 @@ export function useProjects() {
   const generateSteps = useCallback(async (
     title: string,
     description?: string
-  ): Promise<Array<{ title: string; description: string }> | null> => {
+  ): Promise<Array<{ title: string; description: string; children: any[] }> | null> => {
     try {
       const res = await fetch('/api/projects/generate-steps', {
         method: 'POST',

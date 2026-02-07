@@ -148,7 +148,7 @@ function App() {
     setView('project-new')
   }
 
-  const handleCreateProject = async (data: { title: string; description: string; steps: Array<{ title: string; description?: string }> }) => {
+  const handleCreateProject = async (data: { title: string; description: string; steps: Array<{ title: string; description?: string; children?: any[] }> }) => {
     setSaving(true)
     const result = await projects.createProject({
       title: data.title,
