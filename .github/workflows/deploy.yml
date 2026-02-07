@@ -141,6 +141,11 @@ jobs:
             # If this deploy breaks things, you know exactly which commit did it
             docker compose -f docker-compose.prod.yml pull
 
+            # Remove the migrations container so it re-runs on deploy.
+            # Its image (postgres:16) doesn't change between deploys, so
+            # --force-recreate alone won't restart it.
+            docker compose -f docker-compose.prod.yml rm -f oasis-migrations
+
             # Recreate containers with new images
             # --force-recreate ensures containers restart even if config unchanged
             # -d runs detached (don't hang waiting for logs)
