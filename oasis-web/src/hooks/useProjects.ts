@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react'
 export interface ProjectStep {
   id: number
   project_id: number
+  parent_id: number | null
   title: string
   description: string
   status: 'pending' | 'active' | 'completed' | 'skipped'
@@ -11,6 +12,30 @@ export interface ProjectStep {
   created_at: string
   updated_at: string
   completed_at: string | null
+}
+
+export interface StepTreeNode extends ProjectStep {
+  children: StepTreeNode[]
+}
+
+export function buildStepTree(steps: ProjectStep[]): StepTreeNode[] {
+  const map = new Map<number, StepTreeNode>()
+  const roots: StepTreeNode[] = []
+
+  for (const step of steps) {
+    map.set(step.id, { ...step, children: [] })
+  }
+
+  for (const step of steps) {
+    const node = map.get(step.id)!
+    if (step.parent_id && map.has(step.parent_id)) {
+      map.get(step.parent_id)!.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  }
+
+  return roots
 }
 
 export interface Project {
@@ -116,7 +141,7 @@ export function useProjects() {
   // Step operations
   const addSteps = useCallback(async (
     projectId: number,
-    steps: Array<{ title: string; description?: string; meta?: Record<string, unknown> }>
+    steps: Array<{ title: string; description?: string; parent_id?: number | null; meta?: Record<string, unknown> }>
   ): Promise<ProjectStep[] | null> => {
     try {
       const res = await fetch(`/api/projects/${projectId}/steps`, {

@@ -7,12 +7,17 @@ import styles from './ProjectDetail.module.css'
 
 export interface ProjectStep {
   id: number
+  parent_id: number | null
   title: string
   description: string
   status: 'pending' | 'active' | 'completed' | 'skipped'
   sort_order: number
   meta: Record<string, unknown>
   completed_at: string | null
+}
+
+export interface StepTreeNode extends ProjectStep {
+  children: StepTreeNode[]
 }
 
 export interface ProjectData {
@@ -27,21 +32,208 @@ export interface ProjectData {
 
 export interface ProjectDetailProps extends HTMLAttributes<HTMLDivElement> {
   project: ProjectData
-  steps: ProjectStep[]
+  stepTree: StepTreeNode[]
+  allSteps: ProjectStep[]
   onBack: () => void
   onEditProject: () => void
   onDeleteProject: () => void
   onToggleStep: (step: ProjectStep) => void
-  onAddStep: (title: string, description?: string) => void
+  onAddStep: (title: string, description?: string, parentId?: number | null) => void
   onDeleteStep: (stepId: number) => void
   onMoveStep: (stepId: number, direction: 'up' | 'down') => void
   onUpdateProjectStatus: (status: string) => void
 }
 
+// Recursive step renderer
+function StepNode({
+  node,
+  siblings,
+  idx,
+  depth,
+  expandedStep,
+  addingToParent,
+  onToggleStep,
+  onDeleteStep,
+  onMoveStep,
+  onExpandToggle,
+  onStartAddChild,
+  onCancelAddChild,
+  onSubmitAddChild,
+  newChildTitle,
+  newChildDesc,
+  onNewChildTitleChange,
+  onNewChildDescChange,
+}: {
+  node: StepTreeNode
+  siblings: StepTreeNode[]
+  idx: number
+  depth: number
+  expandedStep: number | null
+  addingToParent: number | null
+  onToggleStep: (step: ProjectStep) => void
+  onDeleteStep: (stepId: number) => void
+  onMoveStep: (stepId: number, direction: 'up' | 'down') => void
+  onExpandToggle: (id: number) => void
+  onStartAddChild: (parentId: number) => void
+  onCancelAddChild: () => void
+  onSubmitAddChild: () => void
+  newChildTitle: string
+  newChildDesc: string
+  onNewChildTitleChange: (val: string) => void
+  onNewChildDescChange: (val: string) => void
+}) {
+  const stepStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return '[x]'
+      case 'active': return '[>]'
+      case 'skipped': return '[-]'
+      default: return '[ ]'
+    }
+  }
+
+  const isExpanded = expandedStep === node.id
+  const hasChildren = node.children.length > 0
+  const childCompleted = node.children.filter(c => c.status === 'completed').length
+  const isAddingChild = addingToParent === node.id
+
+  return (
+    <>
+      <div
+        className={`${styles.step} ${node.status === 'completed' ? styles.stepDone : ''} ${node.status === 'skipped' ? styles.stepSkipped : ''}`}
+        style={{ paddingLeft: `calc(var(--space-4) + ${depth * 20}px)` }}
+      >
+        <button
+          className={styles.stepToggle}
+          onClick={() => onToggleStep(node)}
+          title={node.status === 'completed' ? 'Mark incomplete' : 'Mark complete'}
+        >
+          <span className={styles.stepCheckbox}>
+            {stepStatusIcon(node.status)}
+          </span>
+        </button>
+
+        <div
+          className={styles.stepContent}
+          onClick={() => onExpandToggle(node.id)}
+        >
+          <span className={styles.stepTitle}>
+            {node.title}
+            {hasChildren && (
+              <span className={styles.childCount}> ({childCompleted}/{node.children.length})</span>
+            )}
+          </span>
+          {isExpanded && node.description && (
+            <p className={styles.stepDescription}>{node.description}</p>
+          )}
+          {isExpanded && Object.keys(node.meta).length > 0 && (
+            <div className={styles.stepMeta}>
+              {Object.entries(node.meta).map(([key, value]) => (
+                <span key={key} className={styles.metaTag}>
+                  {key}: {String(value)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className={styles.stepActions}>
+          <button
+            className={styles.addChildButton}
+            onClick={() => onStartAddChild(node.id)}
+            title="Add sub-step"
+          >
+            +
+          </button>
+          {idx > 0 && (
+            <button
+              className={styles.moveButton}
+              onClick={() => onMoveStep(node.id, 'up')}
+              title="Move up"
+            >
+              ^
+            </button>
+          )}
+          {idx < siblings.length - 1 && (
+            <button
+              className={styles.moveButton}
+              onClick={() => onMoveStep(node.id, 'down')}
+              title="Move down"
+            >
+              v
+            </button>
+          )}
+          <button
+            className={styles.deleteStepButton}
+            onClick={() => onDeleteStep(node.id)}
+            title="Remove step"
+          >
+            x
+          </button>
+        </div>
+      </div>
+
+      {/* Render children */}
+      {node.children.map((child, childIdx) => (
+        <StepNode
+          key={child.id}
+          node={child}
+          siblings={node.children}
+          idx={childIdx}
+          depth={depth + 1}
+          expandedStep={expandedStep}
+          addingToParent={addingToParent}
+          onToggleStep={onToggleStep}
+          onDeleteStep={onDeleteStep}
+          onMoveStep={onMoveStep}
+          onExpandToggle={onExpandToggle}
+          onStartAddChild={onStartAddChild}
+          onCancelAddChild={onCancelAddChild}
+          onSubmitAddChild={onSubmitAddChild}
+          newChildTitle={newChildTitle}
+          newChildDesc={newChildDesc}
+          onNewChildTitleChange={onNewChildTitleChange}
+          onNewChildDescChange={onNewChildDescChange}
+        />
+      ))}
+
+      {/* Inline add-child form */}
+      {isAddingChild && (
+        <div
+          className={styles.addStepForm}
+          style={{ marginLeft: `calc(var(--space-4) + ${(depth + 1) * 20}px)` }}
+        >
+          <Input
+            label="Sub-step"
+            value={newChildTitle}
+            onChange={(e) => onNewChildTitleChange(e.target.value)}
+            placeholder="What needs to happen..."
+            onKeyDown={(e) => e.key === 'Enter' && onSubmitAddChild()}
+          />
+          <TextArea
+            label="Notes (optional)"
+            value={newChildDesc}
+            onChange={(e) => onNewChildDescChange(e.target.value)}
+            placeholder="Any extra context..."
+          />
+          <div className={styles.addChildActions}>
+            <Button variant="primary" size="sm" onClick={onSubmitAddChild} disabled={!newChildTitle.trim()}>
+              Add
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onCancelAddChild}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
   ({
     project,
-    steps,
+    stepTree,
+    allSteps,
     onBack,
     onEditProject,
     onDeleteProject,
@@ -57,18 +249,42 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
     const [newStepTitle, setNewStepTitle] = useState('')
     const [newStepDesc, setNewStepDesc] = useState('')
     const [expandedStep, setExpandedStep] = useState<number | null>(null)
+    const [addingToParent, setAddingToParent] = useState<number | null>(null)
+    const [newChildTitle, setNewChildTitle] = useState('')
+    const [newChildDesc, setNewChildDesc] = useState('')
 
-    const completedCount = steps.filter(s => s.status === 'completed').length
-    const totalCount = steps.length
+    const completedCount = allSteps.filter(s => s.status === 'completed').length
+    const totalCount = allSteps.length
     const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
     const handleAddStep = () => {
       if (newStepTitle.trim()) {
-        onAddStep(newStepTitle.trim(), newStepDesc.trim() || undefined)
+        onAddStep(newStepTitle.trim(), newStepDesc.trim() || undefined, null)
         setNewStepTitle('')
         setNewStepDesc('')
         setShowAddStep(false)
       }
+    }
+
+    const handleStartAddChild = (parentId: number) => {
+      setAddingToParent(parentId)
+      setNewChildTitle('')
+      setNewChildDesc('')
+    }
+
+    const handleSubmitAddChild = () => {
+      if (newChildTitle.trim() && addingToParent !== null) {
+        onAddStep(newChildTitle.trim(), newChildDesc.trim() || undefined, addingToParent)
+        setNewChildTitle('')
+        setNewChildDesc('')
+        setAddingToParent(null)
+      }
+    }
+
+    const handleCancelAddChild = () => {
+      setAddingToParent(null)
+      setNewChildTitle('')
+      setNewChildDesc('')
     }
 
     const statusVariant = (status: string) => {
@@ -77,15 +293,6 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
         case 'paused': return 'warning' as const
         case 'completed': return 'default' as const
         default: return 'default' as const
-      }
-    }
-
-    const stepStatusIcon = (status: string) => {
-      switch (status) {
-        case 'completed': return '[x]'
-        case 'active': return '[>]'
-        case 'skipped': return '[-]'
-        default: return '[ ]'
       }
     }
 
@@ -204,74 +411,33 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
             </div>
           )}
 
-          {steps.length === 0 ? (
+          {allSteps.length === 0 ? (
             <div className={styles.emptySteps}>
               No steps defined yet. Add some!
             </div>
           ) : (
             <div className={styles.stepList}>
-              {steps.map((step, idx) => (
-                <div
-                  key={step.id}
-                  className={`${styles.step} ${step.status === 'completed' ? styles.stepDone : ''} ${step.status === 'skipped' ? styles.stepSkipped : ''}`}
-                >
-                  <button
-                    className={styles.stepToggle}
-                    onClick={() => onToggleStep(step)}
-                    title={step.status === 'completed' ? 'Mark incomplete' : 'Mark complete'}
-                  >
-                    <span className={styles.stepCheckbox}>
-                      {stepStatusIcon(step.status)}
-                    </span>
-                  </button>
-
-                  <div
-                    className={styles.stepContent}
-                    onClick={() => setExpandedStep(expandedStep === step.id ? null : step.id)}
-                  >
-                    <span className={styles.stepTitle}>{step.title}</span>
-                    {expandedStep === step.id && step.description && (
-                      <p className={styles.stepDescription}>{step.description}</p>
-                    )}
-                    {expandedStep === step.id && Object.keys(step.meta).length > 0 && (
-                      <div className={styles.stepMeta}>
-                        {Object.entries(step.meta).map(([key, value]) => (
-                          <span key={key} className={styles.metaTag}>
-                            {key}: {String(value)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={styles.stepActions}>
-                    {idx > 0 && (
-                      <button
-                        className={styles.moveButton}
-                        onClick={() => onMoveStep(step.id, 'up')}
-                        title="Move up"
-                      >
-                        ^
-                      </button>
-                    )}
-                    {idx < steps.length - 1 && (
-                      <button
-                        className={styles.moveButton}
-                        onClick={() => onMoveStep(step.id, 'down')}
-                        title="Move down"
-                      >
-                        v
-                      </button>
-                    )}
-                    <button
-                      className={styles.deleteStepButton}
-                      onClick={() => onDeleteStep(step.id)}
-                      title="Remove step"
-                    >
-                      x
-                    </button>
-                  </div>
-                </div>
+              {stepTree.map((node, idx) => (
+                <StepNode
+                  key={node.id}
+                  node={node}
+                  siblings={stepTree}
+                  idx={idx}
+                  depth={0}
+                  expandedStep={expandedStep}
+                  addingToParent={addingToParent}
+                  onToggleStep={onToggleStep}
+                  onDeleteStep={onDeleteStep}
+                  onMoveStep={onMoveStep}
+                  onExpandToggle={(id) => setExpandedStep(expandedStep === id ? null : id)}
+                  onStartAddChild={handleStartAddChild}
+                  onCancelAddChild={handleCancelAddChild}
+                  onSubmitAddChild={handleSubmitAddChild}
+                  newChildTitle={newChildTitle}
+                  newChildDesc={newChildDesc}
+                  onNewChildTitleChange={setNewChildTitle}
+                  onNewChildDescChange={setNewChildDesc}
+                />
               ))}
             </div>
           )}

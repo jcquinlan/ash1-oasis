@@ -3,7 +3,7 @@ import { Card, Badge, ContainerItem, Stat, ThemeToggle, JournalList, JournalEdit
 import type { ProjectSummary } from './ui'
 import { useTheme } from './hooks/useTheme'
 import { useJournal, type JournalEntry } from './hooks/useJournal'
-import { useProjects, type Project, type ProjectStep } from './hooks/useProjects'
+import { useProjects, buildStepTree, type Project, type ProjectStep } from './hooks/useProjects'
 import styles from './App.module.css'
 
 type View =
@@ -195,9 +195,9 @@ function App() {
     await refreshProject(selectedProject.id)
   }
 
-  const handleAddStep = async (title: string, description?: string) => {
+  const handleAddStep = async (title: string, description?: string, parentId?: number | null) => {
     if (!selectedProject) return
-    await projects.addSteps(selectedProject.id, [{ title, description }])
+    await projects.addSteps(selectedProject.id, [{ title, description, parent_id: parentId ?? null }])
     await refreshProject(selectedProject.id)
   }
 
@@ -209,15 +209,23 @@ function App() {
 
   const handleMoveStep = async (stepId: number, direction: 'up' | 'down') => {
     if (!selectedProject) return
-    const idx = projectSteps.findIndex(s => s.id === stepId)
+    const step = projectSteps.find(s => s.id === stepId)
+    if (!step) return
+
+    // Get siblings (same parent_id), sorted by sort_order
+    const siblings = projectSteps
+      .filter(s => s.parent_id === step.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order)
+
+    const idx = siblings.findIndex(s => s.id === stepId)
     if (idx < 0) return
 
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= projectSteps.length) return
+    if (swapIdx < 0 || swapIdx >= siblings.length) return
 
     const updates = [
-      { id: projectSteps[idx].id, sort_order: projectSteps[swapIdx].sort_order },
-      { id: projectSteps[swapIdx].id, sort_order: projectSteps[idx].sort_order },
+      { id: siblings[idx].id, sort_order: siblings[swapIdx].sort_order },
+      { id: siblings[swapIdx].id, sort_order: siblings[idx].sort_order },
     ]
 
     await projects.reorderSteps(selectedProject.id, updates)
@@ -340,7 +348,8 @@ function App() {
         {view === 'project-detail' && selectedProject && (
           <ProjectDetail
             project={selectedProject}
-            steps={projectSteps}
+            stepTree={buildStepTree(projectSteps)}
+            allSteps={projectSteps}
             onBack={() => setView('projects-list')}
             onEditProject={handleEditProject}
             onDeleteProject={handleDeleteProject}

@@ -285,7 +285,7 @@ app.post('/api/projects', async (c) => {
     title: string
     description?: string
     meta?: Record<string, unknown>
-    steps?: Array<{ title: string; description?: string; meta?: Record<string, unknown> }>
+    steps?: Array<{ title: string; description?: string; meta?: Record<string, unknown>; parent_id?: number | null }>
   }
 
   if (!title) {
@@ -304,6 +304,7 @@ app.post('/api/projects', async (c) => {
   if (steps && steps.length > 0) {
     const stepValues = steps.map((s, i) => ({
       project_id: project.id,
+      parent_id: s.parent_id ?? null,
       title: s.title,
       description: s.description || '',
       sort_order: (i + 1) * 10,
@@ -311,7 +312,7 @@ app.post('/api/projects', async (c) => {
     }))
 
     insertedSteps = await sql`
-      INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'title', 'description', 'sort_order', 'meta')}
+      INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'parent_id', 'title', 'description', 'sort_order', 'meta')}
       RETURNING *
     `
   }
@@ -381,15 +382,22 @@ app.post('/api/projects/:id/steps', async (c) => {
   // Accept single step or array
   const stepsInput = Array.isArray(body) ? body : [body]
 
-  // Get current max sort_order
-  const maxResult = await sql`
-    SELECT COALESCE(MAX(sort_order), 0)::int as max_order
-    FROM projects.steps WHERE project_id = ${projectId}
-  `
+  // Determine parent_id (all steps in a batch share the same parent)
+  const parentId = stepsInput[0]?.parent_id ?? null
+
+  // Get current max sort_order scoped to siblings
+  const maxResult = parentId
+    ? await sql`
+        SELECT COALESCE(MAX(sort_order), 0)::int as max_order
+        FROM projects.steps WHERE project_id = ${projectId} AND parent_id = ${parentId}`
+    : await sql`
+        SELECT COALESCE(MAX(sort_order), 0)::int as max_order
+        FROM projects.steps WHERE project_id = ${projectId} AND parent_id IS NULL`
   let nextOrder = maxResult[0].max_order + 10
 
   const stepValues = stepsInput.map((s: any) => ({
     project_id: projectId,
+    parent_id: s.parent_id ?? null,
     title: s.title,
     description: s.description || '',
     sort_order: nextOrder += 10,
@@ -397,7 +405,7 @@ app.post('/api/projects/:id/steps', async (c) => {
   }))
 
   const result = await sql`
-    INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'title', 'description', 'sort_order', 'meta')}
+    INSERT INTO projects.steps ${sql(stepValues, 'project_id', 'parent_id', 'title', 'description', 'sort_order', 'meta')}
     RETURNING *
   `
 
@@ -408,24 +416,39 @@ app.post('/api/projects/:id/steps', async (c) => {
 app.put('/api/projects/:id/steps/:stepId', async (c) => {
   const stepId = parseInt(c.req.param('stepId'))
   const body = await c.req.json()
-  const { title, description, status, sort_order, meta } = body as {
+  const { title, description, status, sort_order, parent_id, meta } = body as {
     title?: string
     description?: string
     status?: string
     sort_order?: number
+    parent_id?: number | null
     meta?: Record<string, unknown>
   }
 
-  const result = await sql`
-    UPDATE projects.steps SET
-      title = COALESCE(${title ?? null}, title),
-      description = COALESCE(${description ?? null}, description),
-      status = COALESCE(${status ?? null}, status),
-      sort_order = COALESCE(${sort_order ?? null}, sort_order),
-      meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
-    WHERE id = ${stepId}
-    RETURNING *
-  `
+  // parent_id needs special handling: explicit null means "make root-level"
+  const hasParentId = 'parent_id' in body
+  const result = hasParentId
+    ? await sql`
+        UPDATE projects.steps SET
+          title = COALESCE(${title ?? null}, title),
+          description = COALESCE(${description ?? null}, description),
+          status = COALESCE(${status ?? null}, status),
+          sort_order = COALESCE(${sort_order ?? null}, sort_order),
+          parent_id = ${parent_id ?? null},
+          meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+        WHERE id = ${stepId}
+        RETURNING *
+      `
+    : await sql`
+        UPDATE projects.steps SET
+          title = COALESCE(${title ?? null}, title),
+          description = COALESCE(${description ?? null}, description),
+          status = COALESCE(${status ?? null}, status),
+          sort_order = COALESCE(${sort_order ?? null}, sort_order),
+          meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+        WHERE id = ${stepId}
+        RETURNING *
+      `
 
   if (result.length === 0) {
     return c.json({ error: 'Step not found' }, 404)

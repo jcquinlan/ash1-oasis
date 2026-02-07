@@ -20,10 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_projects_status
 CREATE INDEX IF NOT EXISTS idx_projects_updated_at
     ON projects.projects(updated_at DESC);
 
--- Steps: concrete, actionable items within a project
+-- Steps: concrete, actionable items within a project (tree structure)
 CREATE TABLE IF NOT EXISTS projects.steps (
     id SERIAL PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects.projects(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES projects.steps(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT DEFAULT '',
     status VARCHAR(20) DEFAULT 'pending'
@@ -37,6 +38,9 @@ CREATE TABLE IF NOT EXISTS projects.steps (
 
 CREATE INDEX IF NOT EXISTS idx_steps_project_id
     ON projects.steps(project_id);
+
+CREATE INDEX IF NOT EXISTS idx_steps_parent_id
+    ON projects.steps(parent_id);
 
 CREATE INDEX IF NOT EXISTS idx_steps_sort_order
     ON projects.steps(project_id, sort_order);
