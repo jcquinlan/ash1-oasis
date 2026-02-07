@@ -21,6 +21,11 @@ export default function ProjectsPage() {
     navigate('/projects/new')
   }
 
+  const handleUpdateProjectStatus = async (projectId: number, status: string) => {
+    await projects.updateProject(projectId, { status })
+    await projects.fetchProjects()
+  }
+
   return (
     <Card>
       <h2 className={styles.sectionTitle}>Projects</h2>
@@ -28,6 +33,7 @@ export default function ProjectsPage() {
         projects={projects.projects}
         onSelect={handleSelect}
         onNew={handleNew}
+        onUpdateProjectStatus={handleUpdateProjectStatus}
       />
     </Card>
   )

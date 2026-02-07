@@ -70,3 +70,19 @@
 .warning::before {
   background: var(--accent-peach);
 }
+
+/* ─── Clickable — Interactive badge ──────────────────────────────────────── */
+.clickable {
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    filter var(--transition-base);
+}
+
+.clickable:hover {
+  filter: brightness(0.9);
+}
+
+.clickable:active {
+  filter: brightness(0.8);
+}
