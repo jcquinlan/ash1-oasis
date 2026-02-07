@@ -31,3 +31,12 @@ export type { JournalListProps, JournalEntry as JournalListEntry } from './compo
 
 export { JournalEditor } from './components/JournalEditor/JournalEditor'
 export type { JournalEditorProps, JournalEntry as JournalEditorEntry } from './components/JournalEditor/JournalEditor'
+
+export { ProjectList } from './components/ProjectList/ProjectList'
+export type { ProjectListProps, ProjectSummary } from './components/ProjectList/ProjectList'
+
+export { ProjectDetail } from './components/ProjectDetail/ProjectDetail'
+export type { ProjectDetailProps } from './components/ProjectDetail/ProjectDetail'
+
+export { ProjectForm } from './components/ProjectForm/ProjectForm'
+export type { ProjectFormProps, ProjectFormData } from './components/ProjectForm/ProjectForm'

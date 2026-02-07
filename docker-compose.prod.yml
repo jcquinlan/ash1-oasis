@@ -99,6 +99,7 @@ services:
       - NODE_ENV=production
       - PROC_PATH=/host/proc
       - DATABASE_URL=${DATABASE_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
       oasis:
         condition: service_healthy
