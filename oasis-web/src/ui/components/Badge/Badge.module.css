@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Badge Component — Pastel Terminal Status Indicator
-   Soft, friendly status colors that still communicate clearly
+   Badge Component — Warm Rock Status Indicator
+   Muted earth tones, static indicators
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .badge {
@@ -15,13 +15,9 @@
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   border: 1px solid transparent;
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
 }
 
-/* ─── Status Indicator Dot — Soft glow effect ──────────────────────────────── */
+/* ─── Status Indicator Dot ─────────────────────────────────────────────────── */
 .badge::before {
   content: '';
   display: inline-block;
@@ -31,7 +27,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Default Variant — Neutral warm gray ──────────────────────────────────── */
+/* ─── Default — Neutral warm ───────────────────────────────────────────────── */
 .default {
   background: var(--bg-muted);
   color: var(--fg-subtle);
@@ -42,7 +38,7 @@
   background: var(--fg-faint);
 }
 
-/* ─── Success Variant — Soft Mint Green ────────────────────────────────────── */
+/* ─── Success — Sage ───────────────────────────────────────────────────────── */
 .success {
   background: var(--accent-mint-bg);
   color: var(--accent-mint);
@@ -51,11 +47,9 @@
 
 .success::before {
   background: var(--accent-mint);
-  box-shadow: 0 0 8px var(--accent-mint-glow);
-  animation: mintPulse 2.5s ease-in-out infinite;
 }
 
-/* ─── Error Variant — Soft Coral ───────────────────────────────────────────── */
+/* ─── Error — Rust ─────────────────────────────────────────────────────────── */
 .error {
   background: var(--accent-coral-bg);
   color: var(--accent-coral);
@@ -64,11 +58,9 @@
 
 .error::before {
   background: var(--accent-coral);
-  box-shadow: 0 0 8px var(--accent-coral-glow);
-  animation: coralPulse 2.5s ease-in-out infinite;
 }
 
-/* ─── Warning Variant — Warm Peach ─────────────────────────────────────────── */
+/* ─── Warning — Amber ──────────────────────────────────────────────────────── */
 .warning {
   background: var(--accent-peach-bg);
   color: var(--accent-peach);
@@ -77,40 +69,20 @@
 
 .warning::before {
   background: var(--accent-peach);
-  box-shadow: 0 0 8px var(--accent-peach-glow);
-  animation: peachPulse 2.5s ease-in-out infinite;
 }
 
-/* ─── Pulse Animations — Softer, slower for pastel aesthetic ───────────────── */
-@keyframes mintPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.95);
-  }
+/* ─── Clickable — Interactive badge ──────────────────────────────────────── */
+.clickable {
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    filter var(--transition-base);
 }
 
-@keyframes coralPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.95);
-  }
+.clickable:hover {
+  filter: brightness(0.9);
 }
 
-@keyframes peachPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.95);
-  }
+.clickable:active {
+  filter: brightness(0.8);
 }

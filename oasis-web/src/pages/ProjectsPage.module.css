@@ -1,4 +1,4 @@
-/* ─── Section Title — Terminal comment style ───────────────────────────────── */
+/* ─── Section Title ─────────────────────────────────────────────────────────── */
 .sectionTitle {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -11,15 +11,9 @@
   gap: var(--space-3);
 }
 
-.sectionTitle::before {
-  content: '#';
-  color: var(--accent-pink);
-  font-weight: 400;
-}
-
 .sectionTitle::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, var(--border-muted) 0%, transparent 100%);
+  background: var(--border-base);
 }

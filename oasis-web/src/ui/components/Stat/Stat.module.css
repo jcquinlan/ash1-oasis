@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Stat Component — Pastel Typographic Data Display
-   Precise metrics with warm, inviting presentation
+   Stat Component — Warm Rock Data Display
+   Clean metrics with earthy presentation
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .stat {
@@ -12,18 +12,14 @@
   border-radius: var(--radius-base);
   border: 1px solid var(--border-base);
   transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    border-color var(--transition-fast);
 }
 
 .stat:hover {
-  background: var(--bg-surface);
   border-color: var(--border-muted);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
-/* ─── Label — Subtle terminal comment style ────────────────────────────────── */
+/* ─── Label ─────────────────────────────────────────────────────────────────── */
 .label {
   font-size: var(--text-xs);
   font-weight: 500;
@@ -33,7 +29,7 @@
   line-height: var(--leading-normal);
 }
 
-/* ─── Value — Bold, readable metrics ───────────────────────────────────────── */
+/* ─── Value ─────────────────────────────────────────────────────────────────── */
 .value {
   font-size: var(--text-xl);
   font-weight: 600;
@@ -43,12 +39,11 @@
   line-height: var(--leading-none);
 }
 
-/* ─── Percentage Highlight — Arch Blue accent ──────────────────────────────── */
+/* ─── Percentage — Terracotta accent ────────────────────────────────────────── */
 .value[data-type="percent"] {
   color: var(--accent-blue);
 }
 
-/* ─── Optional suffix styling ──────────────────────────────────────────────── */
 .value::after {
   font-weight: 400;
   color: var(--fg-subtle);

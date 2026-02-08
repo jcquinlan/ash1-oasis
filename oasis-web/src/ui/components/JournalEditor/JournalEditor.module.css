@@ -50,6 +50,9 @@
 .backButton:hover {
   color: var(--fg-base);
   background: var(--bg-elevated);
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
 .toolbarActions {

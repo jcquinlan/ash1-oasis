@@ -323,7 +323,11 @@ export const ProjectDetail = forwardRef<HTMLDivElement, ProjectDetailProps>(
         <div className={styles.projectInfo}>
           <div className={styles.titleRow}>
             <h2 className={styles.title}>{project.title}</h2>
-            <Badge variant={statusVariant(project.status)}>
+            <Badge
+              variant={statusVariant(project.status)}
+              onClick={project.status !== 'archived' ? () => onUpdateProjectStatus(nextStatus[project.status] || 'active') : undefined}
+              title={project.status !== 'archived' ? `Click to ${nextStatus[project.status] === 'paused' ? 'pause' : 'resume'}` : undefined}
+            >
               {project.status}
             </Badge>
           </div>
