@@ -7,6 +7,8 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { Markdown } from 'tiptap-markdown'
 import { Button } from '../Button/Button'
+import { ThemeToggle } from '../ThemeToggle/ThemeToggle'
+import { useTheme } from '../../../hooks/useTheme'
 import styles from './JournalEditor.module.css'
 
 export interface JournalEntry {
@@ -93,6 +95,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
   ({ entry, onSave, onDelete, onCancel, saving = false, className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const contentRef = useRef('')
+    const { theme, toggleTheme } = useTheme()
 
     const editor = useEditor({
       extensions: [
@@ -163,6 +166,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           </button>
 
           <div className={styles.toolbarActions}>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             {entry && onDelete && (
               <button
                 type="button"
