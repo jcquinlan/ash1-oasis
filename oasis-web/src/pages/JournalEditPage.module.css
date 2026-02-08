@@ -1,0 +1,12 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   JournalEditPage — Distraction-Free Writing View
+   Full-viewport, minimal chrome, pure focus on writing
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.writingView {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+}
