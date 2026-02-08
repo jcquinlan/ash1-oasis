@@ -157,6 +157,25 @@ export function useProjects() {
     }
   }, [])
 
+  // Add nested steps (with children) — used for accepting AI-generated steps
+  const addNestedSteps = useCallback(async (
+    projectId: number,
+    steps: Array<{ title: string; description?: string; children?: any[] }>
+  ): Promise<ProjectStep[] | null> => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/steps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(steps),
+      })
+      if (!res.ok) throw new Error('Failed to add nested steps')
+      const result = await res.json()
+      return result.steps
+    } catch {
+      return null
+    }
+  }, [])
+
   const updateStep = useCallback(async (
     projectId: number,
     stepId: number,
@@ -201,6 +220,27 @@ export function useProjects() {
     }
   }, [])
 
+  const editStepsWithAI = useCallback(async (
+    projectId: number,
+    prompt: string
+  ): Promise<ProjectStep[] | null> => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/steps/edit-with-ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to edit steps')
+      }
+      const data = await res.json()
+      return data.steps
+    } catch {
+      return null
+    }
+  }, [])
+
   const generateSteps = useCallback(async (
     title: string,
     description?: string
@@ -230,9 +270,11 @@ export function useProjects() {
     updateProject,
     deleteProject,
     addSteps,
+    addNestedSteps,
     updateStep,
     deleteStep,
     reorderSteps,
+    editStepsWithAI,
     generateSteps,
   }
 }
