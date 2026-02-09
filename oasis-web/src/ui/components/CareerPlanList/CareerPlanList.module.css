@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CareerPlanList Component — Warm Rock Minimalist
+   Clean career plan list with progress indicators
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border-base);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.newButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-blue);
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.newButton:hover {
+  background: var(--bg-surface);
+  color: var(--accent-blue-hover);
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background var(--transition-base);
+}
+
+.plan:hover {
+  background: var(--bg-surface);
+}
+
+.planHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-base);
+  letter-spacing: var(--tracking-normal);
+}
+
+.roles {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+  line-height: var(--leading-relaxed);
+}
+
+.roleArrow {
+  color: var(--fg-faint);
+  margin: 0 var(--space-1);
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.progressTrack {
+  flex: 1;
+  height: 3px;
+  background: var(--bg-muted);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-mint);
+  border-radius: 2px;
+  transition: width 300ms ease;
+  min-width: 0;
+}
+
+.progressLabel {
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.updated {
+  font-size: var(--text-xs);
+  color: var(--fg-faint);
+  letter-spacing: var(--tracking-wide);
+}
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+  background: var(--bg-elevated);
+}

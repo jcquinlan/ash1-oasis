@@ -544,6 +544,384 @@ app.delete('/api/projects/:id/steps/:stepId', async (c) => {
   return c.json({ success: true })
 })
 
+// ─── Career Plan endpoints ────────────────────────────────────────────────────
+
+// Generate a career plan using Claude
+app.post('/api/career/plans/generate', async (c) => {
+  const client = getAnthropicClient()
+  if (!client) {
+    return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
+  }
+
+  const body = await c.req.json()
+  const { current_role, target_role, context, timeframe } = body as {
+    current_role: string
+    target_role: string
+    context?: string
+    timeframe?: string
+  }
+
+  if (!current_role || !target_role) {
+    return c.json({ error: 'current_role and target_role are required' }, 400)
+  }
+
+  const prompt = `You are an experienced career coach and growth strategist. Someone wants to advance their career and you need to build them a SPECIFIC, ACTIONABLE career growth plan.
+
+Current role: ${current_role}
+Target role: ${target_role}
+${timeframe ? `Timeframe: ${timeframe}` : ''}
+${context ? `Additional context: ${context}` : ''}
+
+Your job:
+1. Create a clear career growth plan with a compelling title and narrative summary.
+2. Organize goals into PHASES that represent natural stages of growth (e.g., "Foundation", "Growth", "Leadership", "Transition"). Use 2-4 phases.
+3. Each goal should be SPECIFIC and ACTIONABLE — not vague aspirations. Name concrete skills, certifications, projects, books, or actions.
+4. For each goal, explain the RATIONALE — why this specific goal matters for the career transition.
+5. For each goal, define EVIDENCE CRITERIA — what would prove this goal is complete. Think like a hiring manager or promotion committee: what artifacts, metrics, or demonstrations would be convincing?
+
+Return ONLY a JSON object with this structure:
+{
+  "title": "string — compelling plan title (e.g., 'From Senior Dev to Staff Engineer: A Systems Leadership Path')",
+  "summary": "string — 2-3 paragraph narrative of the overall strategy, key themes, and how the phases build on each other",
+  "goals": [
+    {
+      "title": "string — specific, actionable goal",
+      "description": "string — 1-2 sentences describing what this involves",
+      "rationale": "string — why this matters for the career transition",
+      "phase": "string — phase name like 'Foundation', 'Growth', 'Leadership'",
+      "evidence_criteria": "string — what proof of completion looks like (artifacts, metrics, demonstrations)"
+    }
+  ]
+}
+
+Be opinionated. Make decisions. If the path is ambiguous, pick the most impactful one and explain why. Target 6-12 goals total across all phases.
+
+No markdown wrapping, no explanation outside the JSON. Just the object.`
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      return c.json({ error: 'Failed to parse LLM response' }, 500)
+    }
+
+    const plan = JSON.parse(jsonMatch[0]) as {
+      title: string
+      summary: string
+      goals: Array<{
+        title: string
+        description: string
+        rationale: string
+        phase: string
+        evidence_criteria: string
+      }>
+    }
+
+    return c.json({ plan })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return c.json({ error: `LLM request failed: ${message}` }, 500)
+  }
+})
+
+// List career plans
+app.get('/api/career/plans', async (c) => {
+  const plans = await sql`
+    SELECT p.*,
+      (SELECT COUNT(*)::int FROM career.plan_goals g WHERE g.plan_id = p.id AND g.deleted_at IS NULL) as total_goals,
+      (SELECT COUNT(*)::int FROM career.plan_goals g WHERE g.plan_id = p.id AND g.deleted_at IS NULL AND g.status = 'completed') as completed_goals
+    FROM career.plans p
+    WHERE p.deleted_at IS NULL
+    ORDER BY
+      CASE p.status WHEN 'active' THEN 0 WHEN 'draft' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
+      p.updated_at DESC
+  `
+  return c.json({ plans })
+})
+
+// Get single career plan with all goals
+app.get('/api/career/plans/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const plans = await sql`
+    SELECT * FROM career.plans WHERE id = ${id} AND deleted_at IS NULL
+  `
+  if (plans.length === 0) {
+    return c.json({ error: 'Plan not found' }, 404)
+  }
+
+  const goals = await sql`
+    SELECT g.*, p.title as project_title, p.status as project_status,
+      (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = g.project_id AND s.deleted_at IS NULL) as project_total_steps,
+      (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = g.project_id AND s.deleted_at IS NULL AND s.status = 'completed') as project_completed_steps
+    FROM career.plan_goals g
+    LEFT JOIN projects.projects p ON g.project_id = p.id AND p.deleted_at IS NULL
+    WHERE g.plan_id = ${id} AND g.deleted_at IS NULL
+    ORDER BY g.sort_order ASC, g.id ASC
+  `
+
+  return c.json({ plan: plans[0], goals })
+})
+
+// Create career plan (with goals)
+app.post('/api/career/plans', async (c) => {
+  const body = await c.req.json()
+  const { title, current_role, target_role, timeframe, context, summary, status, meta, goals } = body as {
+    title: string
+    current_role?: string
+    target_role?: string
+    timeframe?: string
+    context?: string
+    summary?: string
+    status?: string
+    meta?: Record<string, unknown>
+    goals?: Array<{
+      title: string
+      description?: string
+      rationale?: string
+      phase?: string
+      evidence_criteria?: string
+      meta?: Record<string, unknown>
+    }>
+  }
+
+  if (!title) {
+    return c.json({ error: 'Title is required' }, 400)
+  }
+
+  const result = await sql`
+    INSERT INTO career.plans (title, current_role, target_role, timeframe, context, summary, status, meta)
+    VALUES (
+      ${title},
+      ${current_role || ''},
+      ${target_role || ''},
+      ${timeframe || ''},
+      ${context || ''},
+      ${summary || ''},
+      ${status || 'active'},
+      ${JSON.stringify(meta || {})}
+    )
+    RETURNING *
+  `
+  const plan = result[0]
+
+  let insertedGoals: any[] = []
+  if (goals && goals.length > 0) {
+    for (let i = 0; i < goals.length; i++) {
+      const g = goals[i]
+      const goalResult = await sql`
+        INSERT INTO career.plan_goals (plan_id, title, description, rationale, phase, sort_order, evidence_criteria, meta)
+        VALUES (
+          ${plan.id},
+          ${g.title},
+          ${g.description || ''},
+          ${g.rationale || ''},
+          ${g.phase || ''},
+          ${(i + 1) * 10},
+          ${g.evidence_criteria || ''},
+          ${JSON.stringify(g.meta || {})}
+        )
+        RETURNING *
+      `
+      insertedGoals.push(goalResult[0])
+    }
+  }
+
+  return c.json({ plan, goals: insertedGoals }, 201)
+})
+
+// Update career plan
+app.put('/api/career/plans/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const body = await c.req.json()
+  const { title, current_role, target_role, timeframe, context, summary, status, meta } = body as {
+    title?: string
+    current_role?: string
+    target_role?: string
+    timeframe?: string
+    context?: string
+    summary?: string
+    status?: string
+    meta?: Record<string, unknown>
+  }
+
+  const result = await sql`
+    UPDATE career.plans SET
+      title = COALESCE(${title ?? null}, title),
+      current_role = COALESCE(${current_role ?? null}, current_role),
+      target_role = COALESCE(${target_role ?? null}, target_role),
+      timeframe = COALESCE(${timeframe ?? null}, timeframe),
+      context = COALESCE(${context ?? null}, context),
+      summary = COALESCE(${summary ?? null}, summary),
+      status = COALESCE(${status ?? null}, status),
+      meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+    WHERE id = ${id} AND deleted_at IS NULL
+    RETURNING *
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Plan not found' }, 404)
+  }
+
+  return c.json({ plan: result[0] })
+})
+
+// Soft-delete career plan and its goals
+app.delete('/api/career/plans/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const result = await sql`
+    UPDATE career.plans SET deleted_at = NOW()
+    WHERE id = ${id} AND deleted_at IS NULL
+    RETURNING id
+  `
+  if (result.length === 0) {
+    return c.json({ error: 'Plan not found' }, 404)
+  }
+
+  await sql`
+    UPDATE career.plan_goals SET deleted_at = NOW()
+    WHERE plan_id = ${id} AND deleted_at IS NULL
+  `
+
+  return c.json({ success: true })
+})
+
+// Update a plan goal
+app.put('/api/career/plans/:planId/goals/:goalId', async (c) => {
+  const goalId = parseInt(c.req.param('goalId'))
+  const body = await c.req.json()
+  const { title, description, rationale, phase, status, sort_order, evidence_criteria, meta } = body as {
+    title?: string
+    description?: string
+    rationale?: string
+    phase?: string
+    status?: string
+    sort_order?: number
+    evidence_criteria?: string
+    meta?: Record<string, unknown>
+  }
+
+  const result = await sql`
+    UPDATE career.plan_goals SET
+      title = COALESCE(${title ?? null}, title),
+      description = COALESCE(${description ?? null}, description),
+      rationale = COALESCE(${rationale ?? null}, rationale),
+      phase = COALESCE(${phase ?? null}, phase),
+      status = COALESCE(${status ?? null}, status),
+      sort_order = COALESCE(${sort_order ?? null}, sort_order),
+      evidence_criteria = COALESCE(${evidence_criteria ?? null}, evidence_criteria),
+      meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
+    WHERE id = ${goalId} AND deleted_at IS NULL
+    RETURNING *
+  `
+
+  if (result.length === 0) {
+    return c.json({ error: 'Goal not found' }, 404)
+  }
+
+  return c.json({ goal: result[0] })
+})
+
+// Soft-delete a plan goal
+app.delete('/api/career/plans/:planId/goals/:goalId', async (c) => {
+  const goalId = parseInt(c.req.param('goalId'))
+  const result = await sql`
+    UPDATE career.plan_goals SET deleted_at = NOW()
+    WHERE id = ${goalId} AND deleted_at IS NULL
+    RETURNING id
+  `
+  if (result.length === 0) {
+    return c.json({ error: 'Goal not found' }, 404)
+  }
+  return c.json({ success: true })
+})
+
+// Activate a goal — creates a linked Project with AI-generated steps
+app.post('/api/career/plans/:planId/goals/:goalId/activate', async (c) => {
+  const goalId = parseInt(c.req.param('goalId'))
+
+  // Get the goal
+  const goals = await sql`
+    SELECT g.*, p.title as plan_title, p.current_role, p.target_role
+    FROM career.plan_goals g
+    JOIN career.plans p ON g.plan_id = p.id
+    WHERE g.id = ${goalId} AND g.deleted_at IS NULL
+  `
+  if (goals.length === 0) {
+    return c.json({ error: 'Goal not found' }, 404)
+  }
+
+  const goal = goals[0]
+  if (goal.project_id) {
+    return c.json({ error: 'Goal already has a linked project', project_id: goal.project_id }, 409)
+  }
+
+  // Create a project for this goal
+  const projectResult = await sql`
+    INSERT INTO projects.projects (title, description, meta)
+    VALUES (
+      ${goal.title},
+      ${goal.description},
+      ${JSON.stringify({ career_plan_id: goal.plan_id, career_goal_id: goal.id })}
+    )
+    RETURNING *
+  `
+  const project = projectResult[0]
+
+  // Link the project to the goal and mark it active
+  await sql`
+    UPDATE career.plan_goals
+    SET project_id = ${project.id}, status = 'active'
+    WHERE id = ${goalId}
+  `
+
+  // Try to generate steps via LLM
+  const client = getAnthropicClient()
+  let insertedSteps: any[] = []
+  if (client) {
+    try {
+      const stepPrompt = `You are a decisive, opinionated project planner. Someone is working on a career goal and needs a SPECIFIC, CONCRETE plan to accomplish it.
+
+Career context: Transitioning from "${goal.current_role}" to "${goal.target_role}"
+Goal: ${goal.title}
+${goal.description ? `Description: ${goal.description}` : ''}
+${goal.rationale ? `Why this matters: ${goal.rationale}` : ''}
+${goal.evidence_criteria ? `Success criteria: ${goal.evidence_criteria}` : ''}
+
+Build a plan of specific, actionable steps. Each leaf step should be ~1-3 hours of work. Use nesting for complex steps.
+
+Return ONLY a JSON array. Each object has:
+- "title": string (imperative action, specific)
+- "description": string (1-2 sentences — tips, specific resources, gotchas)
+- "children": array of the same shape (or empty array if no sub-steps)
+
+No markdown wrapping. Just the array.`
+
+      const message = await client.messages.create({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: stepPrompt }],
+      })
+
+      const text = message.content[0].type === 'text' ? message.content[0].text : ''
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        const steps = JSON.parse(jsonMatch[0])
+        insertedSteps = await insertStepsTree(project.id, steps, null, 0)
+      }
+    } catch {
+      // Steps generation is best-effort — project still created without them
+    }
+  }
+
+  return c.json({ project, steps: insertedSteps }, 201)
+})
+
 // Reorder steps — accepts array of { id, sort_order }
 app.put('/api/projects/:id/steps', async (c) => {
   const body = await c.req.json()

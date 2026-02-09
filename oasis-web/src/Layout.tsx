@@ -27,6 +27,12 @@ export default function Layout() {
               Projects
             </NavLink>
             <NavLink
+              to="/career"
+              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+            >
+              Career
+            </NavLink>
+            <NavLink
               to="/journal"
               className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
             >

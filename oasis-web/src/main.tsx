@@ -9,6 +9,9 @@ import ProjectNewPage from './pages/ProjectNewPage'
 import ProjectEditPage from './pages/ProjectEditPage'
 import JournalPage from './pages/JournalPage'
 import JournalEditPage from './pages/JournalEditPage'
+import CareerPage from './pages/CareerPage'
+import CareerPlanDetailPage from './pages/CareerPlanDetailPage'
+import CareerPlanNewPage from './pages/CareerPlanNewPage'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -21,6 +24,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="projects/new" element={<ProjectNewPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="projects/:id/edit" element={<ProjectEditPage />} />
+          <Route path="career" element={<CareerPage />} />
+          <Route path="career/new" element={<CareerPlanNewPage />} />
+          <Route path="career/:id" element={<CareerPlanDetailPage />} />
           <Route path="journal" element={<JournalPage />} />
         </Route>
         <Route path="journal/new" element={<JournalEditPage />} />
