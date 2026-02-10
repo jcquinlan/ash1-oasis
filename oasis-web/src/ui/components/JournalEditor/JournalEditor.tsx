@@ -19,12 +19,14 @@ export interface JournalEntry {
   updated_at: string
 }
 
-export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSubmit'> {
+export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSubmit' | 'onChange'> {
   entry?: JournalEntry | null
   onSave: (data: { title: string; content: string }) => void
+  onChange?: (data: { title: string; content: string }) => void
   onDelete?: () => void
   onCancel: () => void
   saving?: boolean
+  autoSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 function FormatToolbar({ editor }: { editor: Editor }) {
@@ -92,10 +94,17 @@ function FormatToolbar({ editor }: { editor: Editor }) {
 }
 
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
-  ({ entry, onSave, onDelete, onCancel, saving = false, className, ...props }, ref) => {
+  ({ entry, onSave, onChange, onDelete, onCancel, saving = false, autoSaveStatus = 'idle', className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const contentRef = useRef('')
+    const titleRef = useRef('')
+    const onChangeRef = useRef(onChange)
+    const isInitializingRef = useRef(false)
     const { theme, toggleTheme } = useTheme()
+
+    useEffect(() => {
+      onChangeRef.current = onChange
+    }, [onChange])
 
     const editor = useEditor({
       extensions: [
@@ -121,21 +130,37 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
       onUpdate: ({ editor }) => {
         const md = (editor.storage as Record<string, any>).markdown
         contentRef.current = md.getMarkdown()
+        if (!isInitializingRef.current) {
+          onChangeRef.current?.({ title: titleRef.current, content: contentRef.current })
+        }
       },
     })
 
     useEffect(() => {
       if (!editor) return
+      isInitializingRef.current = true
       if (entry) {
         setTitle(entry.title)
+        titleRef.current = entry.title
         editor.commands.setContent(entry.content)
         contentRef.current = entry.content
       } else {
         setTitle('')
+        titleRef.current = ''
         editor.commands.setContent('')
         contentRef.current = ''
       }
+      requestAnimationFrame(() => {
+        isInitializingRef.current = false
+      })
     }, [entry, editor])
+
+    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newTitle = e.target.value
+      setTitle(newTitle)
+      titleRef.current = newTitle
+      onChangeRef.current?.({ title: newTitle, content: contentRef.current })
+    }
 
     const handleSave = () => {
       const content = contentRef.current.trim()
@@ -166,6 +191,15 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           </button>
 
           <div className={styles.toolbarActions}>
+            {autoSaveStatus === 'saving' && (
+              <span className={styles.autoSaveStatus}>Saving...</span>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <span className={styles.autoSaveStatus}>Saved</span>
+            )}
+            {autoSaveStatus === 'error' && (
+              <span className={`${styles.autoSaveStatus} ${styles.autoSaveError}`}>Save failed</span>
+            )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             {entry && onDelete && (
               <button
@@ -192,7 +226,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={handleTitleChange}
             onKeyDown={handleTitleKeyDown}
             placeholder="Title"
             className={styles.titleInput}
