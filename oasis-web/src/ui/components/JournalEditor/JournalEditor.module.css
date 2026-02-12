@@ -79,6 +79,18 @@
   cursor: pointer;
 }
 
+/* ─── Auto-save status ─────────────────────────────────────────────────── */
+.autoSaveStatus {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--fg-faint);
+  letter-spacing: var(--tracking-wider);
+}
+
+.autoSaveError {
+  color: var(--accent-pink);
+}
+
 .deleteButton {
   font-family: inherit;
   font-size: var(--text-xs);
