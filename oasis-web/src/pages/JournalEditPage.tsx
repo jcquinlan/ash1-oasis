@@ -24,7 +24,7 @@ export default function JournalEditPage() {
     loadEntry()
   }, [loadEntry])
 
-  const handleSave = async (data: { title: string; content: string }) => {
+  const handleSave = async (data: { title: string; content: string; is_public: boolean }) => {
     setSaving(true)
     if (entry) {
       await journal.updateEntry(entry.id, data)

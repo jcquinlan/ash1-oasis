@@ -2,11 +2,13 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, JournalList } from '../ui'
 import { useJournal, type JournalEntry } from '../hooks/useJournal'
+import { useSession } from '../lib/auth-client'
 import styles from './JournalPage.module.css'
 
 export default function JournalPage() {
   const journal = useJournal()
   const navigate = useNavigate()
+  const { data: session } = useSession()
 
   useEffect(() => {
     journal.fetchEntries()
@@ -26,7 +28,7 @@ export default function JournalPage() {
       <JournalList
         entries={journal.entries}
         onSelect={handleSelect}
-        onNew={handleNew}
+        onNew={session ? handleNew : undefined}
       />
     </Card>
   )

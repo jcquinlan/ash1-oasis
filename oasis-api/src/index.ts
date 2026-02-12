@@ -1,9 +1,20 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { createMiddleware } from 'hono/factory'
 import postgres from 'postgres'
 import Anthropic from '@anthropic-ai/sdk'
+import { auth } from './auth'
 
-const app = new Hono()
+// ─── Typed Hono app with session variables ─────────────────────────────────
+type SessionUser = typeof auth.$Infer.Session.user
+type SessionData = typeof auth.$Infer.Session.session
+
+const app = new Hono<{
+  Variables: {
+    user: SessionUser | null
+    session: SessionData | null
+  }
+}>()
 
 const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@oasis:5432/postgres')
 
@@ -17,7 +28,44 @@ function getAnthropicClient(): Anthropic | null {
   return anthropic
 }
 
-app.use('/*', cors())
+// ─── CORS — allow credentials so auth cookies flow through ──────────────────
+app.use('/*', cors({
+  origin: (origin) => origin || '*',
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+}))
+
+// ─── Better Auth handler ────────────────────────────────────────────────────
+app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+  return auth.handler(c.req.raw)
+})
+
+// ─── Session middleware — populates user/session on every request ────────────
+app.use('*', async (c, next) => {
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  })
+
+  if (session) {
+    c.set('user', session.user)
+    c.set('session', session.session)
+  } else {
+    c.set('user', null)
+    c.set('session', null)
+  }
+
+  await next()
+})
+
+// ─── Auth guard middleware ──────────────────────────────────────────────────
+const requireAuth = createMiddleware(async (c, next) => {
+  const user = c.get('user')
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  await next()
+})
 
 async function exec(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn(['sh', '-c', cmd], {
@@ -30,11 +78,13 @@ async function exec(cmd: string): Promise<{ stdout: string; stderr: string; exit
   return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode }
 }
 
-app.get('/api/containers', async (c) => {
+// ─── Protected: System monitoring ───────────────────────────────────────────
+
+app.get('/api/containers', requireAuth, async (c) => {
   const { stdout } = await exec(
     `docker ps -a --format '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}","status":"{{.Status}}","state":"{{.State}}","ports":"{{.Ports}}"}'`
   )
-  
+
   const containers = stdout
     .split('\n')
     .filter(Boolean)
@@ -50,7 +100,7 @@ app.get('/api/containers', async (c) => {
   return c.json({ containers })
 })
 
-app.get('/api/system', async (c) => {
+app.get('/api/system', requireAuth, async (c) => {
   const procPath = process.env.PROC_PATH || '/proc'
   const [uptimeResult, memResult, loadResult, diskResult] = await Promise.all([
     exec(`cat ${procPath}/uptime`),
@@ -94,27 +144,41 @@ app.get('/api/system', async (c) => {
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
-// Journal CRUD endpoints
+// ─── Journal CRUD — reads are visibility-aware, writes require auth ─────────
+
 app.get('/api/journal', async (c) => {
   const page = parseInt(c.req.query('page') || '1')
   const limit = parseInt(c.req.query('limit') || '20')
   const offset = (page - 1) * limit
+  const user = c.get('user')
 
-  const [entries, countResult] = await Promise.all([
-    sql`SELECT id, title, content, created_at, updated_at
-        FROM journal.entries
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}`,
-    sql`SELECT COUNT(*)::int as total FROM journal.entries`
-  ])
+  // Authenticated: all entries. Anonymous: only public ones.
+  const [entries, countResult] = user
+    ? await Promise.all([
+        sql`SELECT id, title, content, is_public, created_at, updated_at
+            FROM journal.entries
+            ORDER BY created_at DESC
+            LIMIT ${limit} OFFSET ${offset}`,
+        sql`SELECT COUNT(*)::int as total FROM journal.entries`
+      ])
+    : await Promise.all([
+        sql`SELECT id, title, content, is_public, created_at, updated_at
+            FROM journal.entries
+            WHERE is_public = true
+            ORDER BY created_at DESC
+            LIMIT ${limit} OFFSET ${offset}`,
+        sql`SELECT COUNT(*)::int as total FROM journal.entries WHERE is_public = true`
+      ])
 
   return c.json({ entries, total: countResult[0].total, page, limit })
 })
 
 app.get('/api/journal/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
+  const user = c.get('user')
+
   const entries = await sql`
-    SELECT id, title, content, created_at, updated_at
+    SELECT id, title, content, is_public, created_at, updated_at
     FROM journal.entries
     WHERE id = ${id}
   `
@@ -123,30 +187,35 @@ app.get('/api/journal/:id', async (c) => {
     return c.json({ error: 'Entry not found' }, 404)
   }
 
+  // If not public and not authenticated, hide it
+  if (!entries[0].is_public && !user) {
+    return c.json({ error: 'Entry not found' }, 404)
+  }
+
   return c.json({ entry: entries[0] })
 })
 
-app.post('/api/journal', async (c) => {
+app.post('/api/journal', requireAuth, async (c) => {
   const body = await c.req.json()
-  const { title, content } = body as { title: string; content: string }
+  const { title, content, is_public } = body as { title: string; content: string; is_public?: boolean }
 
   if (!title || !content) {
     return c.json({ error: 'Title and content are required' }, 400)
   }
 
   const result = await sql`
-    INSERT INTO journal.entries (title, content)
-    VALUES (${title}, ${content})
-    RETURNING id, title, content, created_at, updated_at
+    INSERT INTO journal.entries (title, content, is_public)
+    VALUES (${title}, ${content}, ${is_public ?? false})
+    RETURNING id, title, content, is_public, created_at, updated_at
   `
 
   return c.json({ entry: result[0] }, 201)
 })
 
-app.put('/api/journal/:id', async (c) => {
+app.put('/api/journal/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
   const body = await c.req.json()
-  const { title, content } = body as { title: string; content: string }
+  const { title, content, is_public } = body as { title: string; content: string; is_public?: boolean }
 
   if (!title || !content) {
     return c.json({ error: 'Title and content are required' }, 400)
@@ -154,9 +223,9 @@ app.put('/api/journal/:id', async (c) => {
 
   const result = await sql`
     UPDATE journal.entries
-    SET title = ${title}, content = ${content}
+    SET title = ${title}, content = ${content}, is_public = COALESCE(${is_public ?? null}, is_public)
     WHERE id = ${id}
-    RETURNING id, title, content, created_at, updated_at
+    RETURNING id, title, content, is_public, created_at, updated_at
   `
 
   if (result.length === 0) {
@@ -166,7 +235,7 @@ app.put('/api/journal/:id', async (c) => {
   return c.json({ entry: result[0] })
 })
 
-app.delete('/api/journal/:id', async (c) => {
+app.delete('/api/journal/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
 
   const result = await sql`
@@ -182,10 +251,10 @@ app.delete('/api/journal/:id', async (c) => {
   return c.json({ success: true })
 })
 
-// ─── Project Planning endpoints ──────────────────────────────────────────────
+// ─── Protected: Project Planning endpoints ──────────────────────────────────
 
 // Generate steps for a project using Claude
-app.post('/api/projects/generate-steps', async (c) => {
+app.post('/api/projects/generate-steps', requireAuth, async (c) => {
   const client = getAnthropicClient()
   if (!client) {
     return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
@@ -266,7 +335,7 @@ No markdown wrapping, no explanation outside the JSON. Just the array.`
 })
 
 // List projects with step progress counts
-app.get('/api/projects', async (c) => {
+app.get('/api/projects', requireAuth, async (c) => {
   const status = c.req.query('status') // optional filter: active, paused, completed, archived
 
   const projects = status
@@ -291,7 +360,7 @@ app.get('/api/projects', async (c) => {
 })
 
 // Get single project with all steps
-app.get('/api/projects/:id', async (c) => {
+app.get('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
   const projects = await sql`
     SELECT * FROM projects.projects WHERE id = ${id} AND deleted_at IS NULL
@@ -348,7 +417,7 @@ async function insertStepsTree(
 }
 
 // Create project
-app.post('/api/projects', async (c) => {
+app.post('/api/projects', requireAuth, async (c) => {
   const body = await c.req.json()
   const { title, description, meta, steps } = body as {
     title: string
@@ -378,7 +447,7 @@ app.post('/api/projects', async (c) => {
 })
 
 // Update project
-app.put('/api/projects/:id', async (c) => {
+app.put('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
   const body = await c.req.json()
   const { title, description, status, meta } = body as {
@@ -418,7 +487,7 @@ app.put('/api/projects/:id', async (c) => {
 })
 
 // Soft-delete project and its steps
-app.delete('/api/projects/:id', async (c) => {
+app.delete('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
   const result = await sql`
     UPDATE projects.projects SET deleted_at = NOW()
@@ -441,7 +510,7 @@ app.delete('/api/projects/:id', async (c) => {
 // ─── Step endpoints ────────────────────────────────────────────────────────────
 
 // Add step(s) to a project
-app.post('/api/projects/:id/steps', async (c) => {
+app.post('/api/projects/:id/steps', requireAuth, async (c) => {
   const projectId = parseInt(c.req.param('id'))
   const body = await c.req.json()
 
@@ -479,7 +548,7 @@ app.post('/api/projects/:id/steps', async (c) => {
 })
 
 // Update a step
-app.put('/api/projects/:id/steps/:stepId', async (c) => {
+app.put('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
   const stepId = parseInt(c.req.param('stepId'))
   const body = await c.req.json()
   const { title, description, status, sort_order, parent_id, meta } = body as {
@@ -524,7 +593,7 @@ app.put('/api/projects/:id/steps/:stepId', async (c) => {
 })
 
 // Soft-delete a step and its children (recursive via CTE)
-app.delete('/api/projects/:id/steps/:stepId', async (c) => {
+app.delete('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
   const stepId = parseInt(c.req.param('stepId'))
   const result = await sql`
     WITH RECURSIVE descendants AS (
@@ -545,7 +614,7 @@ app.delete('/api/projects/:id/steps/:stepId', async (c) => {
 })
 
 // Reorder steps — accepts array of { id, sort_order }
-app.put('/api/projects/:id/steps', async (c) => {
+app.put('/api/projects/:id/steps', requireAuth, async (c) => {
   const body = await c.req.json()
   const updates = body as Array<{ id: number; sort_order: number }>
 

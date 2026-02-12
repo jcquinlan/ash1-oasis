@@ -1,11 +1,19 @@
 import { Outlet } from 'react-router-dom'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { ThemeToggle } from './ui'
 import { useTheme } from './hooks/useTheme'
+import { useSession, authClient } from './lib/auth-client'
 import styles from './Layout.module.css'
 
 export default function Layout() {
   const { theme, toggleTheme } = useTheme()
+  const { data: session } = useSession()
+  const navigate = useNavigate()
+
+  const handleSignOut = async () => {
+    await authClient.signOut()
+    navigate('/')
+  }
 
   return (
     <div className={styles.app}>
@@ -18,23 +26,40 @@ export default function Layout() {
               className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
               end
             >
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="/projects"
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-            >
-              Projects
-            </NavLink>
-            <NavLink
-              to="/journal"
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-            >
               Journal
             </NavLink>
+            {session && (
+              <>
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  to="/projects"
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                >
+                  Projects
+                </NavLink>
+              </>
+            )}
           </nav>
           <div className={styles.headerActions}>
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            {session ? (
+              <button
+                type="button"
+                className={styles.authButton}
+                onClick={handleSignOut}
+              >
+                Sign out
+              </button>
+            ) : (
+              <NavLink to="/login" className={styles.authButton}>
+                Sign in
+              </NavLink>
+            )}
           </div>
         </header>
 

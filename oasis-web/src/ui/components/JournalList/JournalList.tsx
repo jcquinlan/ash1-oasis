@@ -5,6 +5,7 @@ export interface JournalEntry {
   id: number
   title: string
   content: string
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -12,7 +13,7 @@ export interface JournalEntry {
 export interface JournalListProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   entries: JournalEntry[]
   onSelect: (entry: JournalEntry) => void
-  onNew: () => void
+  onNew?: () => void
 }
 
 export const JournalList = forwardRef<HTMLDivElement, JournalListProps>(
@@ -51,13 +52,15 @@ export const JournalList = forwardRef<HTMLDivElement, JournalListProps>(
 
     return (
       <div ref={ref} className={`${styles.list} ${className || ''}`} {...props}>
-        <button className={styles.newButton} onClick={onNew}>
-          + New Entry
-        </button>
+        {onNew && (
+          <button className={styles.newButton} onClick={onNew}>
+            + New Entry
+          </button>
+        )}
 
         {entries.length === 0 ? (
           <div className={styles.empty}>
-            No journal entries yet. Create your first one!
+            No journal entries yet.
           </div>
         ) : (
           entries.map((entry) => (
@@ -66,7 +69,10 @@ export const JournalList = forwardRef<HTMLDivElement, JournalListProps>(
               className={styles.entry}
               onClick={() => onSelect(entry)}
             >
-              <span className={styles.title}>{entry.title}</span>
+              <div className={styles.titleRow}>
+                <span className={styles.title}>{entry.title}</span>
+                {entry.is_public && <span className={styles.publicBadge}>public</span>}
+              </div>
               <span className={styles.preview}>{truncate(entry.content, 80)}</span>
               <span className={styles.date}>{formatDate(entry.created_at)}</span>
             </button>
