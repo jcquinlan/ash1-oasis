@@ -1,13 +1,16 @@
-FROM oven/bun:latest
-
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json bun.lockb* ./
 RUN bun install
 
 COPY src ./src
+
+# Run as non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN chown -R app:app /app
+USER app
 
 ENV PORT=3001
 EXPOSE 3001
