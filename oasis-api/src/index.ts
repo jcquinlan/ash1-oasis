@@ -5,6 +5,12 @@ import postgres from 'postgres'
 import Anthropic from '@anthropic-ai/sdk'
 import { auth } from './auth'
 
+// ─── Required environment variables ─────────────────────────────────────────
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL is required — refusing to start with fallback credentials')
+}
+
 // ─── Typed Hono app with session variables ─────────────────────────────────
 type SessionUser = typeof auth.$Infer.Session.user
 type SessionData = typeof auth.$Infer.Session.session
@@ -16,7 +22,7 @@ const app = new Hono<{
   }
 }>()
 
-const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@oasis:5432/postgres')
+const sql = postgres(DATABASE_URL)
 
 // Anthropic client — lazy init so the app still works without a key
 let anthropic: Anthropic | null = null
@@ -28,13 +34,52 @@ function getAnthropicClient(): Anthropic | null {
   return anthropic
 }
 
-// ─── CORS — allow credentials so auth cookies flow through ──────────────────
+// ─── Simple in-memory rate limiter ──────────────────────────────────────────
+function rateLimit(opts: { windowMs: number; max: number; keyFn?: (c: any) => string }) {
+  const hits = new Map<string, { count: number; resetAt: number }>()
+
+  // Clean up expired entries periodically
+  const cleanup = setInterval(() => {
+    const now = Date.now()
+    for (const [key, val] of hits) {
+      if (now > val.resetAt) hits.delete(key)
+    }
+  }, 60_000)
+  cleanup.unref()
+
+  return createMiddleware(async (c, next) => {
+    const key = opts.keyFn?.(c) ?? c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
+    const now = Date.now()
+    const entry = hits.get(key)
+
+    if (!entry || now > entry.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + opts.windowMs })
+      await next()
+      return
+    }
+
+    entry.count++
+    if (entry.count > opts.max) {
+      c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)))
+      return c.json({ error: 'Too many requests' }, 429)
+    }
+
+    await next()
+  })
+}
+
+// ─── CORS — allowlist specific origins ──────────────────────────────────────
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',')
+
 app.use('/*', cors({
-  origin: (origin) => origin || '*',
+  origin: (origin) => ALLOWED_ORIGINS.includes(origin) ? origin : '',
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }))
+
+// ─── Rate limit auth endpoints — 10 per minute per IP ───────────────────────
+app.use('/api/auth/*', rateLimit({ windowMs: 60_000, max: 10 }))
 
 // ─── Better Auth handler ────────────────────────────────────────────────────
 app.on(['POST', 'GET'], '/api/auth/*', (c) => {
@@ -67,82 +112,116 @@ const requireAuth = createMiddleware(async (c, next) => {
   await next()
 })
 
-async function exec(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(['sh', '-c', cmd], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  })
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
-  const exitCode = await proc.exited
-  return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode }
-}
+// ─── Rate limiter for LLM endpoint — 10 per hour per user ──────────────────
+const llmRateLimit = rateLimit({
+  windowMs: 3_600_000,
+  max: 10,
+  keyFn: (c: any) => c.get('user')?.id ?? 'unknown',
+})
 
 // ─── Protected: System monitoring ───────────────────────────────────────────
 
 app.get('/api/containers', requireAuth, async (c) => {
-  const { stdout } = await exec(
-    `docker ps -a --format '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}","status":"{{.Status}}","state":"{{.State}}","ports":"{{.Ports}}"}'`
-  )
+  const dockerUrl = process.env.DOCKER_API_URL || 'http://docker-proxy:2375'
 
-  const containers = stdout
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line)
-      } catch {
-        return null
-      }
-    })
-    .filter(Boolean)
+  try {
+    const resp = await fetch(`${dockerUrl}/containers/json?all=true`)
+    if (!resp.ok) throw new Error(`Docker API responded with ${resp.status}`)
 
-  return c.json({ containers })
+    const raw = (await resp.json()) as any[]
+    const containers = raw.map((ctr) => ({
+      id: (ctr.Id ?? '').slice(0, 12),
+      name: (ctr.Names?.[0] ?? '').replace(/^\//, ''),
+      image: ctr.Image ?? '',
+      status: ctr.Status ?? '',
+      state: ctr.State ?? '',
+      ports: (ctr.Ports ?? [])
+        .map((p: any) =>
+          p.PublicPort
+            ? `${p.IP || '0.0.0.0'}:${p.PublicPort}->${p.PrivatePort}/${p.Type}`
+            : `${p.PrivatePort}/${p.Type}`,
+        )
+        .join(', '),
+    }))
+
+    return c.json({ containers })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return c.json({ error: `Failed to list containers: ${message}` }, 500)
+  }
 })
 
 app.get('/api/system', requireAuth, async (c) => {
   const procPath = process.env.PROC_PATH || '/proc'
-  const [uptimeResult, memResult, loadResult, diskResult] = await Promise.all([
-    exec(`cat ${procPath}/uptime`),
-    exec(`cat ${procPath}/meminfo`),
-    exec(`cat ${procPath}/loadavg`),
-    exec("df -h / | tail -1 | awk '{print $2,$3,$4,$5}'"),
-  ])
 
-  const uptimeSeconds = parseFloat(uptimeResult.stdout.split(' ')[0])
-  const days = Math.floor(uptimeSeconds / 86400)
-  const hours = Math.floor((uptimeSeconds % 86400) / 3600)
-  const minutes = Math.floor((uptimeSeconds % 3600) / 60)
-  const uptime = `${days}d ${hours}h ${minutes}m`
+  try {
+    // Read /proc files directly — no shell interpretation
+    const [uptimeRaw, memRaw, loadRaw] = await Promise.all([
+      Bun.file(`${procPath}/uptime`).text(),
+      Bun.file(`${procPath}/meminfo`).text(),
+      Bun.file(`${procPath}/loadavg`).text(),
+    ])
 
-  const memLines = memResult.stdout.split('\n')
-  const memTotal = parseInt(memLines.find(l => l.startsWith('MemTotal'))?.split(/\s+/)[1] || '0') / 1024
-  const memAvailable = parseInt(memLines.find(l => l.startsWith('MemAvailable'))?.split(/\s+/)[1] || '0') / 1024
-  const memUsed = memTotal - memAvailable
-  const memPercent = Math.round((memUsed / memTotal) * 100)
+    // Disk usage — direct spawn without shell, safe from injection
+    const dfProc = Bun.spawn(['df', '-h', '/'], { stdout: 'pipe', stderr: 'pipe' })
+    const dfOut = await new Response(dfProc.stdout).text()
+    await dfProc.exited
 
-  const loadAvg = loadResult.stdout.split(' ').slice(0, 3).join(' ')
+    const uptimeSeconds = parseFloat(uptimeRaw.split(' ')[0])
+    const days = Math.floor(uptimeSeconds / 86400)
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600)
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60)
+    const uptime = `${days}d ${hours}h ${minutes}m`
 
-  const [diskTotal, diskUsed, diskAvail, diskPercent] = diskResult.stdout.split(' ')
+    const memLines = memRaw.split('\n')
+    const memTotal =
+      parseInt(memLines.find((l) => l.startsWith('MemTotal'))?.split(/\s+/)[1] || '0') / 1024
+    const memAvailable =
+      parseInt(memLines.find((l) => l.startsWith('MemAvailable'))?.split(/\s+/)[1] || '0') / 1024
+    const memUsed = memTotal - memAvailable
+    const memPercent = Math.round((memUsed / memTotal) * 100)
 
-  return c.json({
-    uptime,
-    memory: {
-      total: `${Math.round(memTotal)} MB`,
-      used: `${Math.round(memUsed)} MB`,
-      percent: memPercent,
-    },
-    load: loadAvg,
-    disk: {
-      total: diskTotal,
-      used: diskUsed,
-      available: diskAvail,
-      percent: diskPercent,
-    },
-  })
+    const loadAvg = loadRaw.split(' ').slice(0, 3).join(' ')
+
+    // Parse df output: skip header, extract fields from data line
+    const dfLines = dfOut.trim().split('\n')
+    const dfParts = dfLines[dfLines.length - 1]?.split(/\s+/) || []
+    const [diskTotal, diskUsed, diskAvail, diskPercent] = [
+      dfParts[1],
+      dfParts[2],
+      dfParts[3],
+      dfParts[4],
+    ]
+
+    return c.json({
+      uptime,
+      memory: {
+        total: `${Math.round(memTotal)} MB`,
+        used: `${Math.round(memUsed)} MB`,
+        percent: memPercent,
+      },
+      load: loadAvg,
+      disk: {
+        total: diskTotal,
+        used: diskUsed,
+        available: diskAvail,
+        percent: diskPercent,
+      },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return c.json({ error: `Failed to read system info: ${message}` }, 500)
+  }
 })
 
-app.get('/api/health', (c) => c.json({ status: 'ok' }))
+app.get('/api/health', async (c) => {
+  try {
+    await sql`SELECT 1`
+    return c.json({ status: 'ok' })
+  } catch {
+    return c.json({ status: 'degraded', db: 'unreachable' }, 503)
+  }
+})
 
 // ─── Journal CRUD — reads are visibility-aware, writes require auth ─────────
 
@@ -159,7 +238,7 @@ app.get('/api/journal', async (c) => {
             FROM journal.entries
             ORDER BY created_at DESC
             LIMIT ${limit} OFFSET ${offset}`,
-        sql`SELECT COUNT(*)::int as total FROM journal.entries`
+        sql`SELECT COUNT(*)::int as total FROM journal.entries`,
       ])
     : await Promise.all([
         sql`SELECT id, title, content, is_public, created_at, updated_at
@@ -167,7 +246,7 @@ app.get('/api/journal', async (c) => {
             WHERE is_public = true
             ORDER BY created_at DESC
             LIMIT ${limit} OFFSET ${offset}`,
-        sql`SELECT COUNT(*)::int as total FROM journal.entries WHERE is_public = true`
+        sql`SELECT COUNT(*)::int as total FROM journal.entries WHERE is_public = true`,
       ])
 
   return c.json({ entries, total: countResult[0].total, page, limit })
@@ -202,6 +281,12 @@ app.post('/api/journal', requireAuth, async (c) => {
   if (!title || !content) {
     return c.json({ error: 'Title and content are required' }, 400)
   }
+  if (title.length > 255) {
+    return c.json({ error: 'Title must be 255 characters or less' }, 400)
+  }
+  if (content.length > 100_000) {
+    return c.json({ error: 'Content must be 100KB or less' }, 400)
+  }
 
   const result = await sql`
     INSERT INTO journal.entries (title, content, is_public)
@@ -219,6 +304,12 @@ app.put('/api/journal/:id', requireAuth, async (c) => {
 
   if (!title || !content) {
     return c.json({ error: 'Title and content are required' }, 400)
+  }
+  if (title.length > 255) {
+    return c.json({ error: 'Title must be 255 characters or less' }, 400)
+  }
+  if (content.length > 100_000) {
+    return c.json({ error: 'Content must be 100KB or less' }, 400)
   }
 
   const result = await sql`
@@ -253,8 +344,8 @@ app.delete('/api/journal/:id', requireAuth, async (c) => {
 
 // ─── Protected: Project Planning endpoints ──────────────────────────────────
 
-// Generate steps for a project using Claude
-app.post('/api/projects/generate-steps', requireAuth, async (c) => {
+// Generate steps for a project using Claude (rate-limited per user)
+app.post('/api/projects/generate-steps', requireAuth, llmRateLimit, async (c) => {
   const client = getAnthropicClient()
   if (!client) {
     return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
@@ -265,6 +356,12 @@ app.post('/api/projects/generate-steps', requireAuth, async (c) => {
 
   if (!title) {
     return c.json({ error: 'Title is required' }, 400)
+  }
+  if (title.length > 255) {
+    return c.json({ error: 'Title must be 255 characters or less' }, 400)
+  }
+  if (description && description.length > 10_000) {
+    return c.json({ error: 'Description must be 10KB or less' }, 400)
   }
 
   const prompt = `You are a decisive, opinionated project planner. Someone wants to accomplish a goal and you need to build them a SPECIFIC, CONCRETE plan — not a vague roadmap.
@@ -391,7 +488,7 @@ async function insertStepsTree(
   projectId: number,
   steps: StepInput[],
   parentId: number | null,
-  startOrder: number
+  startOrder: number,
 ): Promise<any[]> {
   const allInserted: any[] = []
 
@@ -428,6 +525,12 @@ app.post('/api/projects', requireAuth, async (c) => {
 
   if (!title) {
     return c.json({ error: 'Title is required' }, 400)
+  }
+  if (title.length > 255) {
+    return c.json({ error: 'Title must be 255 characters or less' }, 400)
+  }
+  if (description && description.length > 10_000) {
+    return c.json({ error: 'Description must be 10KB or less' }, 400)
   }
 
   const result = await sql`
@@ -466,6 +569,13 @@ app.put('/api/projects/:id', requireAuth, async (c) => {
 
   if (Object.keys(updates).length === 0) {
     return c.json({ error: 'No fields to update' }, 400)
+  }
+
+  if (title !== undefined && title.length > 255) {
+    return c.json({ error: 'Title must be 255 characters or less' }, 400)
+  }
+  if (description !== undefined && description.length > 10_000) {
+    return c.json({ error: 'Description must be 10KB or less' }, 400)
   }
 
   // Since postgres lib doesn't have a clean dynamic SET, build per-field
@@ -535,7 +645,7 @@ app.post('/api/projects/:id/steps', requireAuth, async (c) => {
     parent_id: s.parent_id ?? null,
     title: s.title,
     description: s.description || '',
-    sort_order: nextOrder += 10,
+    sort_order: (nextOrder += 10),
     meta: JSON.stringify(s.meta || {}),
   }))
 

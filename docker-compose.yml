@@ -14,6 +14,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    networks:
+      - backend
 
   oasis-migrations:
     container_name: oasis-migrations
@@ -35,6 +37,31 @@ services:
         echo "Migrations complete!"
       '
     restart: "no"
+    networks:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # Docker Socket Proxy — restricts Docker API to container listing only
+  # ---------------------------------------------------------------------------
+  # Instead of mounting the Docker socket directly into the API container
+  # (which exposes the full Docker API including secrets), this proxy only
+  # allows GET requests to /containers.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+      IMAGES: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      SERVICES: 0
+      TASKS: 0
+      INFO: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker
 
   oasis-web:
     build:
@@ -51,6 +78,8 @@ services:
       - NODE_ENV=development
     depends_on:
       - oasis-api
+    networks:
+      - frontend
 
   oasis-api:
     build:
@@ -60,17 +89,35 @@ services:
       - "127.0.0.1:3001:3001"
     volumes:
       - ./oasis-api/src:/app/src:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
     environment:
       - NODE_ENV=development
       - PROC_PATH=/host/proc
+      - DOCKER_API_URL=http://docker-proxy:2375
       - DATABASE_URL=${DATABASE_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - ALLOWED_ORIGINS=http://localhost:3000
     depends_on:
       oasis:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
+    networks:
+      - frontend
+      - backend
+      - docker
+
+# =============================================================================
+# Networks — segment traffic so containers only talk to what they need
+# =============================================================================
+# frontend: oasis-web <-> oasis-api
+# backend:  oasis-api <-> oasis (db), migrations
+# docker:   oasis-api <-> docker-proxy
+networks:
+  frontend:
+  backend:
+  docker:

@@ -1,6 +1,4 @@
-FROM oven/bun:latest
-
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:1
 
 WORKDIR /app
 

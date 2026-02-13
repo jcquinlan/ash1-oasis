@@ -32,6 +32,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    networks:
+      - backend
 
   # ---------------------------------------------------------------------------
   # Database Migrations
@@ -58,6 +60,32 @@ services:
         echo "Migrations complete!"
       '
     restart: "no"
+    networks:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # Docker Socket Proxy — restricts Docker API to container listing only
+  # ---------------------------------------------------------------------------
+  # Instead of mounting the Docker socket directly into the API container
+  # (which exposes the full Docker API including secrets), this proxy only
+  # allows GET requests to /containers. All other endpoints are blocked.
+  docker-proxy:
+    container_name: oasis-docker-proxy
+    image: tecnativa/docker-socket-proxy
+    restart: always
+    environment:
+      CONTAINERS: 1
+      POST: 0
+      IMAGES: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      SERVICES: 0
+      TASKS: 0
+      INFO: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker
 
   # ---------------------------------------------------------------------------
   # Web Frontend
@@ -80,12 +108,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - frontend
 
   # ---------------------------------------------------------------------------
   # API Server
   # ---------------------------------------------------------------------------
   # Pulls from ghcr.io/jcquinlan/oasis-api
-  # Mounts docker socket and /proc for system monitoring capabilities
+  # Uses docker-socket-proxy instead of direct socket mount for security.
+  # Mounts /proc read-only for system metrics (uptime, memory, load).
   oasis-api:
     container_name: oasis-api
     image: ghcr.io/jcquinlan/oasis-api:${IMAGE_TAG:-latest}
@@ -93,26 +124,33 @@ services:
       - "127.0.0.1:8082:3001"
     restart: always
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
     environment:
       - NODE_ENV=production
       - PROC_PATH=/host/proc
+      - DOCKER_API_URL=http://docker-proxy:2375
       - DATABASE_URL=${DATABASE_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       oasis:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - frontend
+      - backend
+      - docker
 
   # ---------------------------------------------------------------------------
   # Database Backup Scheduler
@@ -149,6 +187,8 @@ services:
         done
       '
     restart: always
+    networks:
+      - backend
 
 # =============================================================================
 # Named Volumes
@@ -166,3 +206,13 @@ volumes:
   oasis-backups:
     name: oasis-backups
 
+# =============================================================================
+# Networks — segment traffic so containers only talk to what they need
+# =============================================================================
+# frontend: oasis-web <-> oasis-api
+# backend:  oasis-api <-> oasis (db), migrations, backup
+# docker:   oasis-api <-> docker-proxy (restricted Docker API)
+networks:
+  frontend:
+  backend:
+  docker:
