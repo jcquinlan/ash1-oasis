@@ -161,6 +161,17 @@ jobs:
             # Stop the API so it's not running while migrations execute
             docker compose -f docker-compose.prod.yml stop oasis-api
 
+            # ------------------------------------------------------------------
+            # Pre-migration backup
+            # ------------------------------------------------------------------
+            # Snapshot the database BEFORE running migrations. If a migration
+            # goes wrong, this backup is at most seconds old.
+            echo "Creating pre-migration backup..."
+            docker compose -f docker-compose.prod.yml run --rm \
+              -e BACKUP_DIR=/backups \
+              -v oasis-backups:/backups \
+              oasis-backup /scripts/backup-postgres.sh
+
             # Remove the migrations container so it re-runs on every deploy.
             # Its image (postgres:16) doesn't change, so compose would
             # otherwise see it as "already completed" and skip it.

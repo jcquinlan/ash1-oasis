@@ -25,7 +25,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - oasis-pgdata:/var/lib/postgresql/data
       - ./scripts/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -150,5 +150,19 @@ services:
       '
     restart: always
 
+# =============================================================================
+# Named Volumes
+# =============================================================================
+# Named volumes are managed by Docker and are NOT removed by:
+#   docker compose down        (safe)
+#   docker compose down -v     (DESTROYS volumes — never use in production)
+#   rm -rf ./data              (no effect — data is in Docker's volume store)
+#
+# To inspect: docker volume inspect ash1-oasis_oasis-pgdata
+# To list:    docker volume ls | grep oasis
 volumes:
+  oasis-pgdata:
+    name: oasis-pgdata
   oasis-backups:
+    name: oasis-backups
+
