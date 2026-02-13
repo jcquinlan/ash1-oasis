@@ -113,3 +113,42 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Database Backup Scheduler
+  # ---------------------------------------------------------------------------
+  # Runs pg_dump daily at 3:00 AM, keeps 7 days of backups.
+  # This is a long-running scheduler — starts with `up -d` alongside other services.
+  #
+  # For one-shot pre-deploy backups, use `docker compose exec` on the database
+  # directly — do NOT `docker compose run oasis-backup` (the scheduler loop
+  # never exits and will hang your deploy).
+  oasis-backup:
+    container_name: oasis-backup
+    image: postgres:16
+    volumes:
+      - oasis-backups:/backups
+      - ./scripts/backup-postgres.sh:/scripts/backup-postgres.sh:ro
+    env_file:
+      - .env
+    depends_on:
+      oasis:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        echo "Backup scheduler starting — daily at 3:00 AM"
+        while true; do
+          NEXT_3AM=$$(date -d "tomorrow 03:00" +%s 2>/dev/null || date -d "tomorrow" +%s)
+          NOW=$$(date +%s)
+          SLEEP_SEC=$$((NEXT_3AM - NOW))
+          if [ "$$SLEEP_SEC" -le 0 ]; then SLEEP_SEC=86400; fi
+          echo "Next backup in $$SLEEP_SEC seconds"
+          sleep "$$SLEEP_SEC"
+          echo "--- Backup triggered at $$(date) ---"
+          /scripts/backup-postgres.sh
+        done
+      '
+    restart: always
+
+volumes:
+  oasis-backups:

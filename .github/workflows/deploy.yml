@@ -145,6 +145,19 @@ jobs:
             # If this deploy breaks things, you know exactly which commit did it
             docker compose -f docker-compose.prod.yml pull
 
+            # Ensure the database is running before we do anything
+            docker compose -f docker-compose.prod.yml up -d oasis
+
+            # Pre-migration backup: one-shot pg_dump via exec (exits when done).
+            # Do NOT use `docker compose run oasis-backup` — that starts the
+            # scheduler loop which never exits and will hang the deploy.
+            echo "Creating pre-migration backup..."
+            docker compose -f docker-compose.prod.yml exec -T oasis \
+              sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip' \
+              > ~/ash1-oasis/backup-pre-deploy-$(date +%Y%m%d_%H%M%S).sql.gz \
+              && echo "Pre-migration backup complete" \
+              || echo "WARNING: Pre-migration backup failed (non-fatal, continuing deploy)"
+
             # Stop the API so it's not running while migrations execute
             docker compose -f docker-compose.prod.yml stop oasis-api
 
