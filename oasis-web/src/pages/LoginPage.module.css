@@ -1,0 +1,18 @@
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--fg-base);
+  margin-bottom: var(--space-5);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--accent-pink);
+  margin: 0;
+}

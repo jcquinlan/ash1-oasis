@@ -1,83 +1,47 @@
-#!/usr/bin/env bash
+#!/bin/sh
+set -euo pipefail
+
 # =============================================================================
 # PostgreSQL Backup Script
 # =============================================================================
-# Creates timestamped pg_dump backups and rotates old ones.
+# Creates a timestamped pg_dump of the oasis database.
+# Keeps the last 7 daily backups, pruning older ones.
+#
+# Expected environment variables:
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #
 # Usage:
-#   ./scripts/backup-postgres.sh                    # Uses defaults
-#   BACKUP_DIR=/mnt/backups ./scripts/backup-postgres.sh  # Custom location
-#   KEEP_DAYS=30 ./scripts/backup-postgres.sh             # Custom retention
+#   As a one-shot backup (from host via compose exec):
+#     docker compose -f docker-compose.prod.yml exec oasis pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup.sql
 #
-# Designed to run:
-#   - As a cron job via the oasis-backup container
-#   - Manually before risky operations
-#   - From the CI/CD pipeline before migrations
+#   From within the backup container:
+#     /scripts/backup-postgres.sh
 # =============================================================================
-set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-PGHOST="${PGHOST:-oasis}"
-PGUSER="${POSTGRES_USER:?POSTGRES_USER must be set}"
-PGDATABASE="${POSTGRES_DB:?POSTGRES_DB must be set}"
-export PGPASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
+BACKUP_DIR="/backups"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/oasis_${TIMESTAMP}.sql.gz"
+KEEP_DAYS=7
 
-BACKUP_DIR="${BACKUP_DIR:-/backups}"
-KEEP_DAYS="${KEEP_DAYS:-7}"
-TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP_FILE="${BACKUP_DIR}/oasis-${TIMESTAMP}.sql.gz"
+export PGPASSWORD="${POSTGRES_PASSWORD}"
 
-# ---------------------------------------------------------------------------
-# Preflight checks
-# ---------------------------------------------------------------------------
-mkdir -p "$BACKUP_DIR"
-
-if ! pg_isready -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -q; then
-  echo "FATAL: PostgreSQL is not reachable at ${PGHOST}" >&2
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Backup
-# ---------------------------------------------------------------------------
 echo "Starting backup: ${BACKUP_FILE}"
+pg_dump -h oasis -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" | gzip > "${BACKUP_FILE}"
 
-pg_dump \
-  -h "$PGHOST" \
-  -U "$PGUSER" \
-  -d "$PGDATABASE" \
-  --format=plain \
-  --no-owner \
-  --no-privileges \
-  | gzip > "$BACKUP_FILE"
-
-# Verify the file is non-empty (a zero-byte gzip means pg_dump produced nothing)
-if [ ! -s "$BACKUP_FILE" ]; then
-  echo "FATAL: Backup file is empty — pg_dump likely failed" >&2
-  rm -f "$BACKUP_FILE"
+if [ -s "${BACKUP_FILE}" ]; then
+  SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+  echo "Backup complete: ${BACKUP_FILE} (${SIZE})"
+else
+  echo "ERROR: Backup file is empty!" >&2
+  rm -f "${BACKUP_FILE}"
   exit 1
 fi
 
-BACKUP_SIZE="$(du -h "$BACKUP_FILE" | cut -f1)"
-echo "Backup complete: ${BACKUP_FILE} (${BACKUP_SIZE})"
+# Prune backups older than KEEP_DAYS
+PRUNED=0
+find "${BACKUP_DIR}" -name "oasis_*.sql.gz" -mtime +${KEEP_DAYS} -print -delete | while read -r f; do
+  echo "Pruned old backup: ${f}"
+  PRUNED=$((PRUNED + 1))
+done
 
-# ---------------------------------------------------------------------------
-# Rotation — delete backups older than KEEP_DAYS
-# ---------------------------------------------------------------------------
-DELETED=0
-while IFS= read -r old_backup; do
-  rm -f "$old_backup"
-  DELETED=$((DELETED + 1))
-done < <(find "$BACKUP_DIR" -name "oasis-*.sql.gz" -mtime +"$KEEP_DAYS" -type f)
-
-if [ "$DELETED" -gt 0 ]; then
-  echo "Rotated ${DELETED} backup(s) older than ${KEEP_DAYS} days"
-fi
-
-# ---------------------------------------------------------------------------
-# Summary
-# ---------------------------------------------------------------------------
-TOTAL="$(find "$BACKUP_DIR" -name "oasis-*.sql.gz" -type f | wc -l)"
-echo "Total backups on disk: ${TOTAL}"
+echo "Backup finished at $(date)"

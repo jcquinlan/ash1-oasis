@@ -98,7 +98,7 @@ export default function JournalEditPage() {
     }
   }, [flushSave])
 
-  const handleSave = async (data: { title: string; content: string }) => {
+  const handleSave = async (data: { title: string; content: string; is_public: boolean }) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     pendingDataRef.current = null
 

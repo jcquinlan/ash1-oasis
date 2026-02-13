@@ -15,13 +15,14 @@ export interface JournalEntry {
   id: number
   title: string
   content: string
+  is_public: boolean
   created_at: string
   updated_at: string
 }
 
 export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSubmit' | 'onChange'> {
   entry?: JournalEntry | null
-  onSave: (data: { title: string; content: string }) => void
+  onSave: (data: { title: string; content: string; is_public: boolean }) => void
   onChange?: (data: { title: string; content: string }) => void
   onDelete?: () => void
   onCancel: () => void
@@ -96,6 +97,7 @@ function FormatToolbar({ editor }: { editor: Editor }) {
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
   ({ entry, onSave, onChange, onDelete, onCancel, saving = false, autoSaveStatus = 'idle', className, ...props }, ref) => {
     const [title, setTitle] = useState('')
+    const [isPublic, setIsPublic] = useState(false)
     const contentRef = useRef('')
     const titleRef = useRef('')
     const onChangeRef = useRef(onChange)
@@ -141,11 +143,13 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
       isInitializingRef.current = true
       if (entry) {
         setTitle(entry.title)
+        setIsPublic(entry.is_public)
         titleRef.current = entry.title
         editor.commands.setContent(entry.content)
         contentRef.current = entry.content
       } else {
         setTitle('')
+        setIsPublic(false)
         titleRef.current = ''
         editor.commands.setContent('')
         contentRef.current = ''
@@ -165,7 +169,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
     const handleSave = () => {
       const content = contentRef.current.trim()
       if (title.trim() && content) {
-        onSave({ title: title.trim(), content })
+        onSave({ title: title.trim(), content, is_public: isPublic })
       }
     }
 
@@ -191,6 +195,14 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           </button>
 
           <div className={styles.toolbarActions}>
+            <label className={styles.publicToggle}>
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              Public
+            </label>
             {autoSaveStatus === 'saving' && (
               <span className={styles.autoSaveStatus}>Saving...</span>
             )}

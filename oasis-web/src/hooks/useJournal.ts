@@ -4,6 +4,7 @@ export interface JournalEntry {
   id: number
   title: string
   content: string
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -55,7 +56,7 @@ export function useJournal() {
     }
   }, [])
 
-  const createEntry = useCallback(async (data: { title: string; content: string }): Promise<JournalEntry | null> => {
+  const createEntry = useCallback(async (data: { title: string; content: string; is_public?: boolean }): Promise<JournalEntry | null> => {
     try {
       const res = await fetch('/api/journal', {
         method: 'POST',
@@ -70,7 +71,7 @@ export function useJournal() {
     }
   }, [])
 
-  const updateEntry = useCallback(async (id: number, data: { title: string; content: string }): Promise<JournalEntry | null> => {
+  const updateEntry = useCallback(async (id: number, data: { title: string; content: string; is_public?: boolean }): Promise<JournalEntry | null> => {
     try {
       const res = await fetch(`/api/journal/${id}`, {
         method: 'PUT',

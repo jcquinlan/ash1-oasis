@@ -100,6 +100,8 @@ services:
       - PROC_PATH=/host/proc
       - DATABASE_URL=${DATABASE_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
     depends_on:
       oasis:
         condition: service_healthy
@@ -113,16 +115,14 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
-  # Automated Backups
+  # Database Backup Scheduler
   # ---------------------------------------------------------------------------
-  # Runs pg_dump daily at 3 AM and keeps 7 days of backups.
-  # Backups are stored in a named volume so they survive container recreation.
+  # Runs pg_dump daily at 3:00 AM, keeps 7 days of backups.
+  # This is a long-running scheduler — starts with `up -d` alongside other services.
   #
-  # Manual backup:
-  #   docker compose -f docker-compose.prod.yml exec oasis-backup /scripts/backup-postgres.sh
-  #
-  # Restore from backup:
-  #   gunzip -c backups/oasis-YYYYMMDD-HHMMSS.sql.gz | docker compose -f docker-compose.prod.yml exec -T oasis psql -U $POSTGRES_USER -d $POSTGRES_DB
+  # For one-shot pre-deploy backups, use `docker compose exec` on the database
+  # directly — do NOT `docker compose run oasis-backup` (the scheduler loop
+  # never exits and will hang your deploy).
   oasis-backup:
     container_name: oasis-backup
     image: postgres:16
@@ -165,3 +165,4 @@ volumes:
     name: oasis-pgdata
   oasis-backups:
     name: oasis-backups
+
