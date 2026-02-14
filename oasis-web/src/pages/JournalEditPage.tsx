@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { JournalEditor } from '../ui'
 import { useJournal, type JournalEntry } from '../hooks/useJournal'
+import { useSession } from '../lib/auth-client'
 import styles from './JournalEditPage.module.css'
 
 const AUTOSAVE_DELAY = 2000
@@ -10,6 +11,8 @@ export default function JournalEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const journal = useJournal()
+  const { data: session } = useSession()
+  const readOnly = !session
   const [entry, setEntry] = useState<JournalEntry | null>(null)
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -136,11 +139,12 @@ export default function JournalEditPage() {
       <JournalEditor
         entry={entry}
         onSave={handleSave}
-        onChange={handleChange}
-        onDelete={entry ? handleDelete : undefined}
+        onChange={readOnly ? undefined : handleChange}
+        onDelete={!readOnly && entry ? handleDelete : undefined}
         onCancel={handleCancel}
         saving={saving}
         autoSaveStatus={autoSaveStatus}
+        readOnly={readOnly}
       />
     </div>
   )
