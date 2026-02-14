@@ -28,6 +28,7 @@ export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>,
   onCancel: () => void
   saving?: boolean
   autoSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  readOnly?: boolean
 }
 
 function FormatToolbar({ editor }: { editor: Editor }) {
@@ -95,7 +96,7 @@ function FormatToolbar({ editor }: { editor: Editor }) {
 }
 
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
-  ({ entry, onSave, onChange, onDelete, onCancel, saving = false, autoSaveStatus = 'idle', className, ...props }, ref) => {
+  ({ entry, onSave, onChange, onDelete, onCancel, saving = false, autoSaveStatus = 'idle', readOnly = false, className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const [isPublic, setIsPublic] = useState(false)
     const contentRef = useRef('')
@@ -115,7 +116,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           placeholder: 'Start writing...',
         }),
         Link.configure({
-          openOnClick: false,
+          openOnClick: readOnly,
           autolink: true,
         }),
         TaskList,
@@ -128,6 +129,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           transformCopiedText: true,
         }),
       ],
+      editable: !readOnly,
       content: '',
       onUpdate: ({ editor }) => {
         const md = (editor.storage as Record<string, any>).markdown
@@ -195,25 +197,27 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
           </button>
 
           <div className={styles.toolbarActions}>
-            <label className={styles.publicToggle}>
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-              />
-              Public
-            </label>
-            {autoSaveStatus === 'saving' && (
+            {!readOnly && (
+              <label className={styles.publicToggle}>
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                />
+                Public
+              </label>
+            )}
+            {!readOnly && autoSaveStatus === 'saving' && (
               <span className={styles.autoSaveStatus}>Saving...</span>
             )}
-            {autoSaveStatus === 'saved' && (
+            {!readOnly && autoSaveStatus === 'saved' && (
               <span className={styles.autoSaveStatus}>Saved</span>
             )}
-            {autoSaveStatus === 'error' && (
+            {!readOnly && autoSaveStatus === 'error' && (
               <span className={`${styles.autoSaveStatus} ${styles.autoSaveError}`}>Save failed</span>
             )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            {entry && onDelete && (
+            {!readOnly && entry && onDelete && (
               <button
                 type="button"
                 className={styles.deleteButton}
@@ -222,15 +226,17 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
                 Delete
               </button>
             )}
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={!isValid || saving}
-              onClick={handleSave}
-            >
-              {saving ? 'Saving...' : entry ? 'Save' : 'Create'}
-            </Button>
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={!isValid || saving}
+                onClick={handleSave}
+              >
+                {saving ? 'Saving...' : entry ? 'Save' : 'Create'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -242,10 +248,11 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
             onKeyDown={handleTitleKeyDown}
             placeholder="Title"
             className={styles.titleInput}
-            autoFocus={!entry}
+            autoFocus={!entry && !readOnly}
+            readOnly={readOnly}
           />
 
-          {editor && <FormatToolbar editor={editor} />}
+          {editor && !readOnly && <FormatToolbar editor={editor} />}
 
           <EditorContent editor={editor} className={styles.contentEditor} />
         </div>
