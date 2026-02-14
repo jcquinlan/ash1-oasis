@@ -170,7 +170,7 @@ jobs:
               exit 1
             fi
 
-            if ! zcat "$BACKUP_FILE" | head -1 | grep -q "PostgreSQL database dump"; then
+            if ! zcat "$BACKUP_FILE" | head -5 | grep -q "PostgreSQL database dump"; then
               echo "FATAL: Pre-migration backup is not a valid pg_dump — aborting deploy." >&2
               exit 1
             fi
