@@ -151,12 +151,31 @@ jobs:
             # Pre-migration backup: one-shot pg_dump via exec (exits when done).
             # Do NOT use `docker compose run oasis-backup` — that starts the
             # scheduler loop which never exits and will hang the deploy.
+            # IMPORTANT: A failed backup MUST block the deploy — never deploy
+            # without a known-good backup to roll back to.
             echo "Creating pre-migration backup..."
+            BACKUP_FILE=~/ash1-oasis/backup-pre-deploy-$(date +%Y%m%d_%H%M%S).sql.gz
             docker compose -f docker-compose.prod.yml exec -T oasis \
               sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip' \
-              > ~/ash1-oasis/backup-pre-deploy-$(date +%Y%m%d_%H%M%S).sql.gz \
-              && echo "Pre-migration backup complete" \
-              || echo "WARNING: Pre-migration backup failed (non-fatal, continuing deploy)"
+              > "$BACKUP_FILE"
+
+            if [ ! -s "$BACKUP_FILE" ]; then
+              echo "FATAL: Pre-migration backup is empty or missing — aborting deploy." >&2
+              rm -f "$BACKUP_FILE"
+              exit 1
+            fi
+
+            if ! gzip -t "$BACKUP_FILE" 2>/dev/null; then
+              echo "FATAL: Pre-migration backup is corrupt (gzip integrity check failed) — aborting deploy." >&2
+              exit 1
+            fi
+
+            if ! zcat "$BACKUP_FILE" | head -1 | grep -q "PostgreSQL database dump"; then
+              echo "FATAL: Pre-migration backup is not a valid pg_dump — aborting deploy." >&2
+              exit 1
+            fi
+
+            echo "Pre-migration backup verified: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
             # Stop the API so it's not running while migrations execute
             docker compose -f docker-compose.prod.yml stop oasis-api
