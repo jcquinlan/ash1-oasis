@@ -34,3 +34,5 @@ yarn-error.log*
 
 # Bun
 bun.lockb
+
+scripts/seed-admin.sh
