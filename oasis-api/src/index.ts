@@ -175,14 +175,16 @@ app.get('/api/journal', async (c) => {
   const offset = (page - 1) * limit
   const user = c.get('user')
 
-  // Authenticated: all entries. Anonymous: only public ones.
+  // Authenticated: user's entries + legacy (NULL user_id). Anonymous: only public ones.
   const [entries, countResult] = user
     ? await Promise.all([
-        sql`SELECT id, title, content, is_public, created_at, updated_at
+        sql`SELECT id, title, content, is_public, user_id, created_at, updated_at
             FROM journal.entries
+            WHERE user_id = ${user.id} OR user_id IS NULL
             ORDER BY created_at DESC
             LIMIT ${limit} OFFSET ${offset}`,
-        sql`SELECT COUNT(*)::int as total FROM journal.entries`
+        sql`SELECT COUNT(*)::int as total FROM journal.entries
+            WHERE user_id = ${user.id} OR user_id IS NULL`
       ])
     : await Promise.all([
         sql`SELECT id, title, content, is_public, created_at, updated_at
@@ -201,7 +203,7 @@ app.get('/api/journal/:id', async (c) => {
   const user = c.get('user')
 
   const entries = await sql`
-    SELECT id, title, content, is_public, created_at, updated_at
+    SELECT id, title, content, is_public, user_id, created_at, updated_at
     FROM journal.entries
     WHERE id = ${id}
   `
@@ -210,12 +212,21 @@ app.get('/api/journal/:id', async (c) => {
     return c.json({ error: 'Entry not found' }, 404)
   }
 
-  // If not public and not authenticated, hide it
-  if (!entries[0].is_public && !user) {
-    return c.json({ error: 'Entry not found' }, 404)
+  const entry = entries[0]
+
+  if (user) {
+    // Authenticated: allow if entry belongs to user or has no owner (legacy)
+    if (entry.user_id && entry.user_id !== user.id) {
+      return c.json({ error: 'Entry not found' }, 404)
+    }
+  } else {
+    // Anonymous: only public entries
+    if (!entry.is_public) {
+      return c.json({ error: 'Entry not found' }, 404)
+    }
   }
 
-  return c.json({ entry: entries[0] })
+  return c.json({ entry })
 })
 
 app.post('/api/journal', requireAuth, async (c) => {
@@ -225,11 +236,12 @@ app.post('/api/journal', requireAuth, async (c) => {
   const parsed = parseBody(CreateJournalSchema, body)
   if (!parsed.success) return c.json({ error: parsed.error }, 400)
   const { title, content, is_public } = parsed.data
+  const userId = c.get('user')!.id
 
   const result = await sql`
-    INSERT INTO journal.entries (title, content, is_public)
-    VALUES (${title}, ${content}, ${is_public})
-    RETURNING id, title, content, is_public, created_at, updated_at
+    INSERT INTO journal.entries (title, content, is_public, user_id)
+    VALUES (${title}, ${content}, ${is_public}, ${userId})
+    RETURNING id, title, content, is_public, user_id, created_at, updated_at
   `
 
   return c.json({ entry: result[0] }, 201)
@@ -237,6 +249,7 @@ app.post('/api/journal', requireAuth, async (c) => {
 
 app.put('/api/journal/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
 
   let body: unknown
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
@@ -248,8 +261,8 @@ app.put('/api/journal/:id', requireAuth, async (c) => {
   const result = await sql`
     UPDATE journal.entries
     SET title = ${title}, content = ${content}, is_public = COALESCE(${is_public ?? null}, is_public)
-    WHERE id = ${id}
-    RETURNING id, title, content, is_public, created_at, updated_at
+    WHERE id = ${id} AND (user_id = ${userId} OR user_id IS NULL)
+    RETURNING id, title, content, is_public, user_id, created_at, updated_at
   `
 
   if (result.length === 0) {
@@ -261,10 +274,11 @@ app.put('/api/journal/:id', requireAuth, async (c) => {
 
 app.delete('/api/journal/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
 
   const result = await sql`
     DELETE FROM journal.entries
-    WHERE id = ${id}
+    WHERE id = ${id} AND (user_id = ${userId} OR user_id IS NULL)
     RETURNING id
   `
 
@@ -361,6 +375,7 @@ No markdown wrapping, no explanation outside the JSON. Just the array.`
 // List projects with step progress counts
 app.get('/api/projects', requireAuth, async (c) => {
   const status = c.req.query('status') // optional filter: active, paused, completed, archived
+  const userId = c.get('user')!.id
 
   const projects = status
     ? await sql`
@@ -369,6 +384,7 @@ app.get('/api/projects', requireAuth, async (c) => {
           (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL AND s.status = 'completed') as completed_steps
         FROM projects.projects p
         WHERE p.status = ${status} AND p.deleted_at IS NULL
+          AND (p.user_id = ${userId} OR p.user_id IS NULL)
         ORDER BY p.updated_at DESC`
     : await sql`
         SELECT p.*,
@@ -376,6 +392,7 @@ app.get('/api/projects', requireAuth, async (c) => {
           (SELECT COUNT(*)::int FROM projects.steps s WHERE s.project_id = p.id AND s.deleted_at IS NULL AND s.status = 'completed') as completed_steps
         FROM projects.projects p
         WHERE p.deleted_at IS NULL
+          AND (p.user_id = ${userId} OR p.user_id IS NULL)
         ORDER BY
           CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
           p.updated_at DESC`
@@ -386,8 +403,12 @@ app.get('/api/projects', requireAuth, async (c) => {
 // Get single project with all steps
 app.get('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
   const projects = await sql`
-    SELECT * FROM projects.projects WHERE id = ${id} AND deleted_at IS NULL
+    SELECT * FROM projects.projects
+    WHERE id = ${id} AND deleted_at IS NULL
+      AND (user_id = ${userId} OR user_id IS NULL)
   `
   if (projects.length === 0) {
     return c.json({ error: 'Project not found' }, 404)
@@ -448,10 +469,11 @@ app.post('/api/projects', requireAuth, async (c) => {
   const parsed = parseBody(CreateProjectSchema, body)
   if (!parsed.success) return c.json({ error: parsed.error }, 400)
   const { title, description, meta, steps } = parsed.data
+  const userId = c.get('user')!.id
 
   const result = await sql`
-    INSERT INTO projects.projects (title, description, meta)
-    VALUES (${title}, ${description || ''}, ${JSON.stringify(meta || {})})
+    INSERT INTO projects.projects (title, description, meta, user_id)
+    VALUES (${title}, ${description || ''}, ${JSON.stringify(meta || {})}, ${userId})
     RETURNING *
   `
   const project = result[0]
@@ -468,6 +490,7 @@ app.post('/api/projects', requireAuth, async (c) => {
 // Update project
 app.put('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
 
   let body: unknown
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
@@ -484,6 +507,7 @@ app.put('/api/projects/:id', requireAuth, async (c) => {
       status = COALESCE(${status ?? null}, status),
       meta = COALESCE(${meta ? JSON.stringify(meta) : null}::jsonb, meta)
     WHERE id = ${id} AND deleted_at IS NULL
+      AND (user_id = ${userId} OR user_id IS NULL)
     RETURNING *
   `
 
@@ -497,9 +521,12 @@ app.put('/api/projects/:id', requireAuth, async (c) => {
 // Soft-delete project and its steps
 app.delete('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
   const result = await sql`
     UPDATE projects.projects SET deleted_at = NOW()
     WHERE id = ${id} AND deleted_at IS NULL
+      AND (user_id = ${userId} OR user_id IS NULL)
     RETURNING id
   `
   if (result.length === 0) {
@@ -517,9 +544,24 @@ app.delete('/api/projects/:id', requireAuth, async (c) => {
 
 // ─── Step endpoints ────────────────────────────────────────────────────────────
 
+// Helper: verify project ownership before step operations
+async function verifyProjectOwnership(projectId: number, userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT id FROM projects.projects
+    WHERE id = ${projectId} AND deleted_at IS NULL
+      AND (user_id = ${userId} OR user_id IS NULL)
+  `
+  return result.length > 0
+}
+
 // Add step(s) to a project
 app.post('/api/projects/:id/steps', requireAuth, async (c) => {
   const projectId = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
+  if (!await verifyProjectOwnership(projectId, userId)) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
 
   let body: unknown
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
@@ -562,6 +604,13 @@ app.post('/api/projects/:id/steps', requireAuth, async (c) => {
 
 // Update a step
 app.put('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
+  const projectId = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
+  if (!await verifyProjectOwnership(projectId, userId)) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
   const stepId = parseInt(c.req.param('stepId'))
 
   let body: unknown
@@ -605,6 +654,13 @@ app.put('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
 
 // Soft-delete a step and its children (recursive via CTE)
 app.delete('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
+  const projectId = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
+  if (!await verifyProjectOwnership(projectId, userId)) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
   const stepId = parseInt(c.req.param('stepId'))
   const result = await sql`
     WITH RECURSIVE descendants AS (
@@ -626,6 +682,13 @@ app.delete('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
 
 // Reorder steps — accepts array of { id, sort_order }
 app.put('/api/projects/:id/steps', requireAuth, async (c) => {
+  const projectId = parseInt(c.req.param('id'))
+  const userId = c.get('user')!.id
+
+  if (!await verifyProjectOwnership(projectId, userId)) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
   let body: unknown
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
