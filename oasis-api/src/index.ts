@@ -14,6 +14,7 @@ import {
   ReorderStepsSchema,
   GenerateStepsSchema,
   parseBody,
+  slugify,
 } from './schemas'
 
 // ─── Typed Hono app with session variables ─────────────────────────────────
@@ -178,7 +179,7 @@ app.get('/api/journal', async (c) => {
   // Authenticated: user's entries + legacy (NULL user_id). Anonymous: only public ones.
   const [entries, countResult] = user
     ? await Promise.all([
-        sql`SELECT id, title, content, is_public, user_id, created_at, updated_at
+        sql`SELECT id, title, content, is_public, user_id, slug, excerpt, published_at, created_at, updated_at
             FROM journal.entries
             WHERE user_id = ${user.id} OR user_id IS NULL
             ORDER BY created_at DESC
@@ -187,7 +188,7 @@ app.get('/api/journal', async (c) => {
             WHERE user_id = ${user.id} OR user_id IS NULL`
       ])
     : await Promise.all([
-        sql`SELECT id, title, content, is_public, created_at, updated_at
+        sql`SELECT id, title, content, is_public, slug, excerpt, published_at, created_at, updated_at
             FROM journal.entries
             WHERE is_public = true
             ORDER BY created_at DESC
@@ -203,7 +204,7 @@ app.get('/api/journal/:id', async (c) => {
   const user = c.get('user')
 
   const entries = await sql`
-    SELECT id, title, content, is_public, user_id, created_at, updated_at
+    SELECT id, title, content, is_public, user_id, slug, excerpt, published_at, created_at, updated_at
     FROM journal.entries
     WHERE id = ${id}
   `
@@ -235,13 +236,18 @@ app.post('/api/journal', requireAuth, async (c) => {
 
   const parsed = parseBody(CreateJournalSchema, body)
   if (!parsed.success) return c.json({ error: parsed.error }, 400)
-  const { title, content, is_public } = parsed.data
+  const { title, content, is_public, excerpt } = parsed.data
   const userId = c.get('user')!.id
 
+  // Auto-generate slug from title if public and no slug provided
+  const entrySlug = parsed.data.slug || (is_public ? slugify(title) : null)
+  // Set published_at when creating a public entry
+  const publishedAt = is_public ? new Date() : null
+
   const result = await sql`
-    INSERT INTO journal.entries (title, content, is_public, user_id)
-    VALUES (${title}, ${content}, ${is_public}, ${userId})
-    RETURNING id, title, content, is_public, user_id, created_at, updated_at
+    INSERT INTO journal.entries (title, content, is_public, user_id, slug, excerpt, published_at)
+    VALUES (${title}, ${content}, ${is_public}, ${userId}, ${entrySlug}, ${excerpt ?? null}, ${publishedAt})
+    RETURNING id, title, content, is_public, user_id, slug, excerpt, published_at, created_at, updated_at
   `
 
   return c.json({ entry: result[0] }, 201)
@@ -256,13 +262,49 @@ app.put('/api/journal/:id', requireAuth, async (c) => {
 
   const parsed = parseBody(UpdateJournalSchema, body)
   if (!parsed.success) return c.json({ error: parsed.error }, 400)
-  const { title, content, is_public } = parsed.data
+  const { title, content, is_public, excerpt } = parsed.data
+
+  // Determine slug: use provided value, or auto-generate if going public with no slug
+  const hasSlug = 'slug' in (body as any)
+  const slugValue = hasSlug ? (parsed.data.slug ?? null) : undefined
+
+  // First fetch the current entry to determine published_at logic
+  const current = await sql`
+    SELECT is_public, published_at, slug FROM journal.entries
+    WHERE id = ${id} AND (user_id = ${userId} OR user_id IS NULL)
+  `
+  if (current.length === 0) {
+    return c.json({ error: 'Entry not found' }, 404)
+  }
+
+  // published_at logic:
+  // - Going public (was false, now true) and published_at is NULL → set to NOW()
+  // - Going private (was true, now false) → preserve published_at (do NOT clear)
+  let publishedAt: Date | null | undefined = undefined // undefined = don't change
+  const wasPublic = current[0].is_public
+  const nowPublic = is_public ?? wasPublic
+  if (nowPublic && !wasPublic && !current[0].published_at) {
+    publishedAt = new Date()
+  }
+
+  // Auto-generate slug if going public and has no slug
+  let finalSlug = slugValue
+  if (finalSlug === undefined) {
+    if (nowPublic && !current[0].slug) {
+      finalSlug = slugify(title)
+    }
+  }
 
   const result = await sql`
     UPDATE journal.entries
-    SET title = ${title}, content = ${content}, is_public = COALESCE(${is_public ?? null}, is_public)
+    SET title = ${title},
+        content = ${content},
+        is_public = COALESCE(${is_public ?? null}, is_public),
+        slug = COALESCE(${finalSlug !== undefined ? finalSlug : null}, slug),
+        excerpt = ${excerpt !== undefined ? excerpt : current[0]?.excerpt ?? null},
+        published_at = COALESCE(${publishedAt !== undefined ? publishedAt : null}, published_at)
     WHERE id = ${id} AND (user_id = ${userId} OR user_id IS NULL)
-    RETURNING id, title, content, is_public, user_id, created_at, updated_at
+    RETURNING id, title, content, is_public, user_id, slug, excerpt, published_at, created_at, updated_at
   `
 
   if (result.length === 0) {

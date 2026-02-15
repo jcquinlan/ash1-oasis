@@ -2,17 +2,35 @@ import { z } from 'zod'
 
 // ─── Journal Schemas ─────────────────────────────────────────────────────────
 
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
 export const CreateJournalSchema = z.object({
   title: z.string().min(1).max(255),
   content: z.string().min(1),
   is_public: z.boolean().optional().default(false),
+  slug: z.string().max(255).regex(slugPattern, 'Slug must be lowercase alphanumeric with hyphens').optional(),
+  excerpt: z.string().optional(),
 })
 
 export const UpdateJournalSchema = z.object({
   title: z.string().min(1).max(255),
   content: z.string().min(1),
   is_public: z.boolean().optional(),
+  slug: z.string().max(255).regex(slugPattern, 'Slug must be lowercase alphanumeric with hyphens').optional().nullable(),
+  excerpt: z.string().optional().nullable(),
 })
+
+// ─── Slug helper ────────────────────────────────────────────────────────────
+
+export function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
 
 // ─── Step Schemas ────────────────────────────────────────────────────────────
 
