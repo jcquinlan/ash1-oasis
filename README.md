@@ -1,16 +1,17 @@
 # ash1-oasis
 
-A homelab DevOps monorepo featuring a monitoring dashboard that displays system stats and Docker container status.
+A homelab DevOps monorepo featuring a monitoring dashboard, journal, and project planner with AI-powered step generation.
 
 ## Project Structure
 
 ```
 ash1-oasis/
-├── oasis-web/           # React frontend
-├── oasis-api/           # Hono API server
-├── scripts/db/init/     # PostgreSQL initialization scripts
-├── docker-compose.yml   # Development compose
-└── docker-compose.prod.yml  # Production compose
+├── oasis-web/              # React frontend
+├── oasis-api/              # Hono API server
+├── scripts/db/init/        # Idempotent PostgreSQL migrations (01-06)
+├── .github/workflows/      # CI/CD pipeline
+├── docker-compose.yml      # Development compose (HMR)
+└── docker-compose.prod.yml # Production compose (GHCR images)
 ```
 
 ## Services
@@ -20,15 +21,21 @@ ash1-oasis/
 | `oasis` | PostgreSQL 16 database | 5432 | internal |
 | `oasis-web` | React + Vite frontend | 3000 | 8081 |
 | `oasis-api` | Hono API server | 3001 | 8082 |
+| `oasis-migrations` | Runs SQL migrations on startup | — | — |
+| `oasis-backup` | Daily pg_dump scheduler (prod) | — | — |
 
 ## Tech Stack
 
 - **Runtime**: Bun
-- **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Hono framework
+- **Frontend**: React 18 + TypeScript + Vite 6 + React Router 7
+- **Backend**: Hono v4
 - **Database**: PostgreSQL 16
-- **Containerization**: Docker with docker-compose
-- **CI/CD**: Drone CI
+- **Authentication**: Better Auth v1 (email/password, session-based)
+- **Validation**: Zod v4 (all POST/PUT endpoints)
+- **Rich Text**: Tiptap v3 (journal editor)
+- **LLM**: Anthropic SDK (Claude API for project step generation)
+- **Containerization**: Docker + Docker Compose
+- **CI/CD**: GitHub Actions → GHCR → SSH deploy
 
 ## Quick Start
 
@@ -59,16 +66,19 @@ ash1-oasis/
 4. Access services:
    - Frontend: http://localhost:3000
    - API: http://localhost:3001
-   - PostgreSQL: localhost:5432
 
 ## Development
 
 ### Hot Module Reloading
 
-The development setup includes HMR for rapid iteration:
+- **Frontend**: Edit files in `oasis-web/src/` — changes reflect immediately
+- **API**: Edit files in `oasis-api/src/` — server reloads automatically
 
-- **Frontend**: Edit files in `oasis-web/src/` and changes reflect immediately in the browser
-- **API**: Edit files in `oasis-api/src/` and the server reloads automatically
+### Running Tests
+
+```bash
+cd oasis-api && bun test
+```
 
 ### Local Development Commands
 
@@ -77,54 +87,88 @@ The development setup includes HMR for rapid iteration:
 bun install      # Install dependencies
 bun run dev      # Development server
 bun run build    # Build for production
-bun run preview  # Preview production build
 ```
 
 #### API (oasis-api/)
 ```bash
 bun install      # Install dependencies
 bun run dev      # Development with hot reload
-bun run deploy   # Production server
+bun run deploy   # Production build + run
 ```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `POSTGRES_USER` | Yes | Database user (for containers) |
+| `POSTGRES_PASSWORD` | Yes | Database password |
+| `POSTGRES_DB` | Yes | Database name |
+| `BETTER_AUTH_SECRET` | Yes | Session signing secret |
+| `BETTER_AUTH_URL` | Yes | Base URL for auth callbacks |
+| `ANTHROPIC_API_KEY` | No | Enables AI step generation |
+| `ANTHROPIC_MODEL` | No | Override LLM model (default: claude-sonnet-4-5-20250929) |
+| `CORS_ORIGINS` | No | Additional allowed origins (comma-separated) |
 
 ## Production Deployment
 
-### Manual Deployment
+Production uses pre-built images from GitHub Container Registry:
 
 ```bash
-docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### CI/CD with Drone
+Rollback to a specific version:
+```bash
+IMAGE_TAG=abc1234 docker compose -f docker-compose.prod.yml up -d
+```
 
-The repository includes a `.drone.yml` configuration that:
-
-1. Builds and validates `oasis-web` and `oasis-api`
-2. Deploys via SSH on merge to `main`/`master`
-
-Required Drone secrets:
-- `deploy_host` - Server hostname
-- `deploy_user` - SSH username
-- `deploy_key` - SSH private key
-
-### Server Setup
-
-1. Clone repo to `/opt/ash1-oasis`
-2. Create `.env` with production credentials
-3. Ensure Docker and docker-compose are installed
-4. Configure Drone secrets for automated deployment
+CI/CD is handled by GitHub Actions — pushes to `master` build images, push to GHCR, and deploy via SSH.
 
 ## API Endpoints
 
-- `GET /api/health` - Health check
-- `GET /api/containers` - Docker container status
-- `GET /api/system` - System metrics (uptime, memory, load, disk)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `*` | `/api/auth/*` | Public | Better Auth (signup, signin, signout) |
+| `GET` | `/api/health` | Public | Health check |
+| `GET` | `/api/containers` | Protected | Docker container status |
+| `GET` | `/api/system` | Protected | System metrics (uptime, memory, load, disk) |
+| `GET` | `/api/journal` | Visibility | List entries (anon: public only) |
+| `GET` | `/api/journal/:id` | Visibility | Single entry |
+| `POST` | `/api/journal` | Protected | Create entry |
+| `PUT` | `/api/journal/:id` | Protected | Update entry (ownership enforced) |
+| `DELETE` | `/api/journal/:id` | Protected | Delete entry (ownership enforced) |
+| `GET` | `/api/projects` | Protected | List projects |
+| `GET` | `/api/projects/:id` | Protected | Project with steps |
+| `POST` | `/api/projects` | Protected | Create project |
+| `PUT` | `/api/projects/:id` | Protected | Update project (ownership enforced) |
+| `DELETE` | `/api/projects/:id` | Protected | Soft-delete project (ownership enforced) |
+| `POST` | `/api/projects/:id/steps` | Protected | Add steps |
+| `PUT` | `/api/projects/:id/steps/:stepId` | Protected | Update step |
+| `DELETE` | `/api/projects/:id/steps/:stepId` | Protected | Soft-delete step + children |
+| `PUT` | `/api/projects/:id/steps` | Protected | Batch reorder steps |
+| `POST` | `/api/projects/generate-steps` | Protected | AI-powered step generation |
 
-## Architecture
+All POST/PUT endpoints validate request bodies with Zod schemas. Invalid input returns `400` with descriptive error messages.
 
-The frontend polls the API every 5 seconds for real-time updates. The API server:
+## Database Migrations
 
-- Executes `docker ps` commands to gather container status
-- Reads from `/proc` filesystem for system metrics (uptime, memory, load)
-- Uses `df` for disk usage information
+Migrations live in `scripts/db/init/` and run automatically on every `docker compose up`. All SQL is idempotent — safe to re-run against an existing database.
+
+| File | Description |
+|------|-------------|
+| `01-init.sql` | App schema, drops legacy metrics tables |
+| `02-journal.sql` | Journal schema and entries table |
+| `03-projects.sql` | Projects schema, projects + steps tables |
+| `04-soft-deletes.sql` | Adds deleted_at columns for soft deletes |
+| `05-auth.sql` | Better Auth tables (user, session, account, verification) |
+| `06-ownership.sql` | Adds user_id FK to journal entries and projects |
+
+## Security
+
+- **CORS**: Locked to `jamescq.com` and `localhost` origins (configurable via `CORS_ORIGINS`)
+- **Authentication**: Better Auth with session cookies
+- **Ownership**: Journal entries and projects are scoped to the creating user
+- **Input validation**: All write endpoints validated with Zod schemas
+- **Credentials**: Never committed — loaded from `.env` file

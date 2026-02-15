@@ -39,3 +39,4 @@ scripts/seed-admin.sh
 
 # Harness runtime state
 .harness/
+PROJECT.md
