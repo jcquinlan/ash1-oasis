@@ -344,31 +344,59 @@ Example structure:
 
 No markdown wrapping, no explanation outside the JSON. Just the array.`
 
+  const modelName = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
+
   try {
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+
+    const message = await client.messages.create(
+      { model: modelName, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] },
+      { signal: controller.signal },
+    )
+    clearTimeout(timeout)
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
 
     // Parse the JSON from the response — handle potential markdown wrapping
     const jsonMatch = text.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
-      return c.json({ error: 'Failed to parse LLM response' }, 500)
+      console.error('LLM response did not contain a JSON array')
+      return c.json({ error: 'Failed to parse LLM response' }, 502)
     }
 
-    const steps = JSON.parse(jsonMatch[0]) as Array<{
-      title: string
-      description: string
-      children: Array<{ title: string; description: string; children: any[] }>
-    }>
+    let steps: unknown
+    try {
+      steps = JSON.parse(jsonMatch[0])
+    } catch {
+      console.error('LLM response contained invalid JSON')
+      return c.json({ error: 'LLM returned invalid JSON' }, 502)
+    }
+
+    // Validate response shape
+    if (!Array.isArray(steps) || !steps.every((s: any) => typeof s.title === 'string' && typeof s.description === 'string')) {
+      console.error('LLM response has invalid shape — missing title or description')
+      return c.json({ error: 'LLM returned invalid step format' }, 502)
+    }
 
     return c.json({ steps })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return c.json({ error: `LLM request failed: ${message}` }, 500)
+    // Abort → 504 Gateway Timeout
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      console.error('LLM request timed out after 30s')
+      return c.json({ error: 'LLM request timed out' }, 504)
+    }
+
+    // Anthropic API errors — forward their status code
+    if (err instanceof Anthropic.APIError) {
+      console.error(`Anthropic API error: ${err.status} ${err.message}`)
+      const status = err.status >= 400 && err.status < 600 ? err.status : 502
+      return c.json({ error: `LLM request failed: ${err.message}` }, status as any)
+    }
+
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error(`LLM request failed: ${msg}`)
+    return c.json({ error: `LLM request failed: ${msg}` }, 500)
   }
 })
 
