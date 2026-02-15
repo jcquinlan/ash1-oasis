@@ -54,14 +54,15 @@ describe('Migration ordering', () => {
   const migrationsDir = resolve(__dirname, '../../scripts/db/init')
   const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()
 
-  test('migrations are sequentially numbered 01-06', () => {
-    expect(files.length).toBe(6)
+  test('migrations are sequentially numbered 01-07', () => {
+    expect(files.length).toBe(7)
     expect(files[0]).toMatch(/^01-/)
     expect(files[1]).toMatch(/^02-/)
     expect(files[2]).toMatch(/^03-/)
     expect(files[3]).toMatch(/^04-/)
     expect(files[4]).toMatch(/^05-/)
     expect(files[5]).toMatch(/^06-/)
+    expect(files[6]).toMatch(/^07-/)
   })
 
   test('06-ownership.sql exists', () => {

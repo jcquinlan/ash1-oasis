@@ -15,8 +15,8 @@ const indexSrc = readFileSync(indexPath, 'utf-8')
 describe('Journal ownership enforcement', () => {
   test('POST /api/journal sets user_id from session', () => {
     // The INSERT should include user_id column and ${userId} value
-    expect(indexSrc).toContain("INSERT INTO journal.entries (title, content, is_public, user_id)")
-    expect(indexSrc).toMatch(/VALUES \(\$\{title\}.*\$\{userId\}\)/)
+    expect(indexSrc).toContain("INSERT INTO journal.entries (title, content, is_public, user_id")
+    expect(indexSrc).toMatch(/VALUES \(\$\{title\}.*\$\{userId\}/)
   })
 
   test('PUT /api/journal/:id checks ownership', () => {
