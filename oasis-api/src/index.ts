@@ -39,9 +39,21 @@ function getAnthropicClient(): Anthropic | null {
   return anthropic
 }
 
-// ─── CORS — allow credentials so auth cookies flow through ──────────────────
+// ─── CORS — restricted to known origins ──────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://jamescq.com',
+  'https://www.jamescq.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  ...(process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || []),
+]
+
 app.use('/*', cors({
-  origin: (origin) => origin || '*',
+  origin: (origin) => {
+    if (!origin) return ALLOWED_ORIGINS[0]        // same-origin / server-to-server
+    if (ALLOWED_ORIGINS.includes(origin)) return origin
+    return ''                                     // deny
+  },
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
