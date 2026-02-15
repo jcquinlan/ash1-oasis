@@ -16,6 +16,7 @@ import {
   parseBody,
   slugify,
 } from './schemas'
+import { generateExcerpt, calculateReadingTime } from './blog-helpers'
 
 // ─── Typed Hono app with session variables ─────────────────────────────────
 type SessionUser = typeof auth.$Infer.Session.user
@@ -197,6 +198,60 @@ app.get('/api/journal', async (c) => {
       ])
 
   return c.json({ entries, total: countResult[0].total, page, limit })
+})
+
+// ─── Public blog endpoints (must be before /api/journal/:id) ────────────────
+
+app.get('/api/journal/public', async (c) => {
+  const page = Math.max(1, parseInt(c.req.query('page') || '1'))
+  const limit = Math.min(50, Math.max(1, parseInt(c.req.query('limit') || '10')))
+  const offset = (page - 1) * limit
+
+  const [posts, countResult] = await Promise.all([
+    sql`SELECT slug, title, content, excerpt, published_at
+        FROM journal.entries
+        WHERE is_public = true AND published_at IS NOT NULL
+        ORDER BY published_at DESC
+        LIMIT ${limit} OFFSET ${offset}`,
+    sql`SELECT COUNT(*)::int as total FROM journal.entries
+        WHERE is_public = true AND published_at IS NOT NULL`,
+  ])
+
+  const postsWithMeta = posts.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    excerpt: p.excerpt || generateExcerpt(p.content),
+    published_at: p.published_at,
+    reading_time: calculateReadingTime(p.content),
+  }))
+
+  return c.json({ posts: postsWithMeta, total: countResult[0].total, page, limit })
+})
+
+app.get('/api/journal/slug/:slug', async (c) => {
+  const slug = c.req.param('slug')
+
+  const entries = await sql`
+    SELECT slug, title, content, excerpt, published_at
+    FROM journal.entries
+    WHERE slug = ${slug} AND is_public = true AND published_at IS NOT NULL
+  `
+
+  if (entries.length === 0) {
+    return c.json({ error: 'Post not found' }, 404)
+  }
+
+  const p = entries[0]
+  return c.json({
+    post: {
+      slug: p.slug,
+      title: p.title,
+      content: p.content,
+      excerpt: p.excerpt || generateExcerpt(p.content),
+      published_at: p.published_at,
+      reading_time: calculateReadingTime(p.content),
+    },
+  })
 })
 
 app.get('/api/journal/:id', async (c) => {
