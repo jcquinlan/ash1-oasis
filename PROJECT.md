@@ -1,214 +1,165 @@
 # Project Name
-Ash1 Cleanup
+Blog Enhancements
+
+The goal of this project to migrate the basic Journal functionality to instead be a properly structured blog.
+The writing experience as we have it is good (the simple markdown editor, plus autosaving). Instead, I want to make the root of the web app be a more traditional blog landing page, which then leads into a feed of my public posts. Basically, I want the core web app experience to be a blog, and then I can build out more of private homelab stuff elsewhere, or behind an admin route or something. The process of making the existing web app feel more like a traditional blog (without removing any existing functionality, mind you) may call for adding new features, or tracking new data, and I expect you to know when these things might be called for vs. might be unecessary.
+
+All changes should have test coverage, and we are striving for simplicity and cleanliness over all other things.
+
 
 ## Tech Stack
+Use the existing services in the repo:
+- **Frontend**: React 18 + TypeScript + Vite (oasis-web)
+- **Backend**: Hono API server with raw SQL via `postgres` library (oasis-api)
+- **Database**: PostgreSQL 16 (journal schema already exists)
+- **Editor**: Tiptap (existing WYSIWYG markdown editor — unchanged)
+- **Auth**: Better Auth (existing email/password auth — unchanged)
+- **Runtime**: Bun for all services
 
-- **Runtime**: Bun (all services)
-- **Frontend**: React 18 + TypeScript + Vite 6 + React Router 7
-- **Backend**: Hono v4 (HTTP framework on Bun)
-- **Database**: PostgreSQL 16 (via `postgres` driver for app queries, Kysely for Better Auth)
-- **Authentication**: Better Auth v1 (email/password, session-based)
-- **Rich Text**: Tiptap v3 (journal editor with markdown support)
-- **LLM**: Anthropic SDK (Claude API for project step generation)
-- **Containerization**: Docker + Docker Compose
-- **CI/CD**: GitHub Actions → GHCR → SSH deploy
-- **Production**: Nginx (frontend), Bun (API), PostgreSQL 16
+New dependencies (minimal):
+- **react-markdown** + **remark-gfm** — lightweight markdown rendering for the public read-only blog view. Avoids loading the full Tiptap editor bundle for anonymous readers.
+
 
 ## Requirements
 
-Perform a deep clean of the codebase, as a means of onboarding the new agent harness.
-Look for high-level improvements to the codebase, in terms of security, polish, techdebt, functionality, etc.
-Choose a couple to implement.
+### Blog Landing Page
+- The root route (`/`) becomes a public blog landing page showing a reverse-chronological feed of published posts
+- Each post card in the feed shows: title, excerpt (first ~160 characters of content if no explicit excerpt), published date, and estimated reading time
+- Clicking a post card navigates to the full post view
+- The feed is paginated (load more or numbered pages — keep it simple)
+- Anonymous visitors can browse the feed and read public posts with no login required
 
-Selected cleanup targets:
+### Individual Post View
+- Each public post is viewable at `/blog/:slug` using a clean, read-only rendered view
+- Renders the post's markdown content using react-markdown (not the Tiptap editor)
+- Shows: title, published date, reading time, rendered content
+- Navigation back to the blog feed
 
-1. **API Input Validation** — Add Zod schema validation to all POST/PUT endpoints. Currently the API casts `req.json()` with `as` and trusts whatever arrives. This is the single biggest code quality gap.
-2. **CORS Lockdown** — The CORS middleware accepts any origin (`origin || '*'`) with `credentials: true`. Lock to the production domain (`jamescq.com`) and localhost for dev.
-3. **Add user_id to journal entries and projects** — Neither entity tracks ownership. Any authenticated user can modify any record. Add ownership FK and enforce it in API routes.
-4. **Remove dead metrics tables** — `app.container_metrics` and `app.system_metrics` are never written to. Drop the tables and the `01-init.sql` migration contents to reduce confusion.
-5. **Clean up LLM integration** — Extract hardcoded model name (`claude-sonnet-4-5-20250929`) to an env var. Add proper error handling to the `/api/projects/generate-steps` endpoint.
+### URL Slugs
+- Each journal entry gets a `slug` field — auto-generated from the title on creation, editable by the author
+- Slugs must be unique among public posts
+- Public posts are accessed by slug; the numeric ID is still used for API calls and the authoring interface
+
+### Draft / Published Workflow
+- Add a `published_at` timestamp column to `journal.entries`
+- A post is considered "published" when `is_public = true` AND `published_at IS NOT NULL`
+- Publishing sets `published_at` to the current time (if not already set)
+- Unpublishing (setting `is_public = false`) preserves `published_at` so re-publishing restores the original date
+- The blog feed orders by `published_at DESC`
+
+### Excerpts
+- Add an `excerpt` field to `journal.entries` (optional, TEXT)
+- If the author provides an explicit excerpt, use it in the feed and meta tags
+- If no excerpt, auto-generate from the first ~160 characters of the content (strip markdown formatting)
+
+### Authoring Experience
+- Existing journal editing at `/journal/new` and `/journal/:id` continues to work exactly as-is
+- Add slug editing to the journal editor (shown as a text field, auto-populated from title, editable)
+- Add excerpt editing to the journal editor (optional textarea)
+- The publish toggle (`is_public`) remains but now also controls `published_at` behavior as described above
+
+### Navigation Restructure
+- **Public (anonymous)**: Blog feed (`/`), individual post (`/blog/:slug`), login (`/login`)
+- **Authenticated**: All public routes plus Journal editor (`/journal/*`), Dashboard (`/dashboard`), Projects (`/projects/*`)
+- Header nav updates: "Blog" link (always visible) points to `/`, authenticated users also see "Journal", "Dashboard", "Projects"
+- The "Journal" link for authenticated users goes to `/journal` which shows their full entry list (public + private drafts)
+
+### API Changes
+- `GET /api/journal/public` — new endpoint for the public blog feed (paginated, returns only published posts with slug, title, excerpt, published_at, reading_time)
+- `GET /api/journal/slug/:slug` — new endpoint to fetch a single published post by slug
+- Existing `/api/journal` endpoints unchanged (still used by the authoring interface)
+
 
 ## Non-Requirements
+- **Comments** — not building a comment system. If needed later, use a third-party solution (Giscus, etc.)
+- **Tags / Categories** — not in initial scope. Can be added later without breaking changes.
+- **RSS feed** — defer to a follow-up project. Nice to have, not blocking.
+- **SSR / Pre-rendering** — stay as a client-side SPA. SEO for blog posts is a known tradeoff accepted for simplicity.
+- **Social sharing buttons** — not needed
+- **Full-text search** — not in scope
+- **Scheduled publishing** — `published_at` supports it structurally, but no UI for scheduling. Publish is immediate.
+- **Cover images** — not in initial scope. The `cover_image_url` column can be added later if desired.
+- **Renaming the "journal" schema or tables** — keep the database schema as `journal.entries`. Only the public-facing UI uses the word "blog."
 
-- No new features (no new pages, no new API domains, no new services)
-- No Kubernetes migration or infrastructure changes
-- No frontend redesign or UI overhaul
-- No migration away from current tech stack (Bun, Hono, Better Auth)
-- No changes to the CI/CD pipeline structure (GitHub Actions → GHCR → SSH)
-- Do not add a logging framework (desirable but out of scope for cleanup)
-- Do not add React Query/SWR — the current fetch-in-hooks pattern is fine for this scale
 
 ## Architecture
 
-### Directory Structure
-
+### Route Structure
 ```
-ash1-oasis/
-├── oasis-web/                 # React frontend
-│   ├── src/
-│   │   ├── pages/             # Route page components (7 pages)
-│   │   ├── components/        # Auth guards (RequireAuth)
-│   │   ├── hooks/             # Data fetching hooks (useTheme, useJournal, useProjects)
-│   │   ├── ui/                # Reusable UI components (13 components)
-│   │   ├── lib/               # Auth client config
-│   │   ├── Layout.tsx          # Root layout with nav
-│   │   └── main.tsx           # React Router setup
-│   ├── Dockerfile / Dockerfile.dev
-│   ├── nginx.conf             # Production static serving
-│   └── vite.config.ts
-├── oasis-api/                 # Hono API server
-│   ├── src/
-│   │   ├── index.ts           # All routes + middleware (~643 lines)
-│   │   └── auth.ts            # Better Auth config
-│   ├── Dockerfile / Dockerfile.dev
-│   └── package.json
-├── scripts/
-│   ├── db/init/               # Idempotent SQL migrations (5 files)
-│   ├── backup-postgres.sh     # Daily backup scheduler
-│   └── dev.sh                 # Dev utilities
-├── docker-compose.yml         # Development (HMR enabled)
-├── docker-compose.prod.yml    # Production (pre-built images)
-└── .github/workflows/deploy.yml  # CI/CD pipeline
+Public:
+  /                    → BlogFeedPage (new — public post feed)
+  /blog/:slug          → BlogPostPage (new — single post read-only view)
+  /login               → LoginPage (existing)
+
+Authenticated:
+  /journal             → JournalPage (existing — author's entry list)
+  /journal/new         → JournalEditPage (existing, enhanced with slug/excerpt fields)
+  /journal/:id         → JournalEditPage (existing, enhanced with slug/excerpt fields)
+  /dashboard           → DashboardPage (existing)
+  /projects/*          → Projects pages (existing)
 ```
 
-### Key Patterns
+### Data Flow
+- **Blog feed**: `BlogFeedPage` → `GET /api/journal/public?page=1&limit=10` → renders post cards
+- **Single post**: `BlogPostPage` → `GET /api/journal/slug/:slug` → renders markdown via react-markdown
+- **Authoring**: Existing flow unchanged — `JournalEditPage` → `POST/PUT /api/journal` with new `slug` and `excerpt` fields
 
-- **API routing**: All routes in a single `index.ts` file. Protected routes use `requireAuth` middleware that checks Better Auth sessions.
-- **Data access split**: Better Auth uses Kysely adapter. All application queries (journal, projects, system) use raw `postgres` template literals with parameterized queries.
-- **Frontend data fetching**: Custom hooks (`useJournal`, `useProjects`) wrap `fetch()` calls. No caching layer — data re-fetches on component mount.
-- **System monitoring**: API shells out to `docker ps`, `cat /proc/*`, `df` via `Bun.spawn()` and parses stdout. Fragile but functional.
-- **Migrations**: All SQL in `scripts/db/init/` must be idempotent (see CLAUDE.md for patterns). Run by `oasis-migrations` container on every `docker compose up`.
-- **Soft deletes**: Projects and steps use `deleted_at` timestamp. Journal entries use hard deletes. Queries must include `WHERE deleted_at IS NULL`.
-- **Fail loudly**: Per CLAUDE.md — prefer crashing over silent defaults, health checks must verify real dependencies, CI must use `set -euo pipefail`.
-
-### Data Model
-
+### Component Structure
 ```
-auth.user
-  - id (TEXT PK)
-  - name (TEXT)
-  - email (TEXT UNIQUE)
-  - emailVerified (BOOLEAN)
-  - image (TEXT)
-  - createdAt / updatedAt (TIMESTAMP)
+New components:
+  BlogFeedPage          — page component for /
+  BlogPostPage          — page component for /blog/:slug
+  PostCard              — individual post card in the feed (title, excerpt, date, reading time)
 
-auth.session
-  - id (TEXT PK)
-  - token (TEXT UNIQUE)
-  - expiresAt (TIMESTAMP)
-  - userId (FK → auth.user)
-  - ipAddress, userAgent (TEXT)
-
-auth.account
-  - id (TEXT PK)
-  - providerId, accountId (TEXT)
-  - userId (FK → auth.user)
-  - password (TEXT) — hashed
-  - accessToken, refreshToken, etc.
-
-auth.verification
-  - id (TEXT PK)
-  - identifier, value (TEXT)
-  - expiresAt (TIMESTAMP)
-
-journal.entries
-  - id (SERIAL PK)
-  - title (VARCHAR 255)
-  - content (TEXT) — raw HTML from Tiptap
-  - is_public (BOOLEAN DEFAULT false)
-  - created_at / updated_at (TIMESTAMP)
-  ⚠ No user_id FK — ownership not tracked
-
-projects.projects
-  - id (SERIAL PK)
-  - title (VARCHAR 255)
-  - description (TEXT)
-  - status (VARCHAR 50: active|paused|completed|archived)
-  - meta (JSONB)
-  - created_at / updated_at / deleted_at (TIMESTAMP)
-  ⚠ No user_id FK — ownership not tracked
-
-projects.steps
-  - id (SERIAL PK)
-  - project_id (FK → projects.projects)
-  - parent_id (FK → self, nullable) — tree structure
-  - title (VARCHAR 255)
-  - description (TEXT)
-  - status (VARCHAR 50: pending|active|completed|skipped)
-  - sort_order (INTEGER)
-  - meta (JSONB)
-  - created_at / updated_at / completed_at / deleted_at (TIMESTAMP)
-
-app.container_metrics  ⚠ DEAD TABLE — never written to
-app.system_metrics     ⚠ DEAD TABLE — never written to
+Modified components:
+  JournalEditPage       — add slug + excerpt fields
+  Layout                — update navigation links
+  main.tsx              — update route definitions
 ```
 
-**Relationships:**
-- auth.user 1──∞ auth.session
-- auth.user 1──∞ auth.account
-- projects.projects 1──∞ projects.steps
-- projects.steps 1──∞ projects.steps (self-referencing tree via parent_id)
-- journal.entries — standalone (no FK to users)
+### Database Changes
+All changes via a new idempotent migration file (`scripts/db/init/07-blog.sql`):
+```sql
+ALTER TABLE journal.entries ADD COLUMN IF NOT EXISTS slug VARCHAR(255);
+ALTER TABLE journal.entries ADD COLUMN IF NOT EXISTS excerpt TEXT;
+ALTER TABLE journal.entries ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 
-### API Design
+-- Partial unique index: slugs must be unique among entries that have one
+CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entries_slug
+  ON journal.entries(slug) WHERE slug IS NOT NULL;
 
-**Base path**: `/api`
-**Auth**: Better Auth handles `/api/auth/*` (signup, signin, signout, session). Protected routes use `requireAuth` middleware → 401 if no valid session.
-**Response format**: JSON. Success returns data directly. Errors return `{ error: "message" }`.
+-- Optimized index for public feed queries
+CREATE INDEX IF NOT EXISTS idx_journal_entries_published
+  ON journal.entries(published_at DESC)
+  WHERE is_public = true AND published_at IS NOT NULL;
+```
 
-**Endpoints:**
+Backfill for existing public entries:
+```sql
+UPDATE journal.entries
+  SET published_at = created_at
+  WHERE is_public = true AND published_at IS NULL;
+```
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `*` | `/api/auth/*` | Public | Better Auth handler |
-| `GET` | `/api/health` | Public | Health check (currently superficial) |
-| `GET` | `/api/containers` | Protected | Docker container status |
-| `GET` | `/api/system` | Protected | System metrics from /proc |
-| `GET` | `/api/journal` | Visibility | List entries (anon: public only) |
-| `GET` | `/api/journal/:id` | Visibility | Single entry (visibility-aware) |
-| `POST` | `/api/journal` | Protected | Create entry |
-| `PUT` | `/api/journal/:id` | Protected | Update entry |
-| `DELETE` | `/api/journal/:id` | Protected | Delete entry |
-| `GET` | `/api/projects` | Protected | List projects (filter by status) |
-| `GET` | `/api/projects/:id` | Protected | Project with steps |
-| `POST` | `/api/projects` | Protected | Create project |
-| `PUT` | `/api/projects/:id` | Protected | Update project |
-| `DELETE` | `/api/projects/:id` | Protected | Soft-delete project + steps |
-| `POST` | `/api/projects/:id/steps` | Protected | Add steps |
-| `PUT` | `/api/projects/:id/steps/:stepId` | Protected | Update step |
-| `DELETE` | `/api/projects/:id/steps/:stepId` | Protected | Soft-delete step + children |
-| `PUT` | `/api/projects/:id/steps` | Protected | Batch reorder steps |
-| `POST` | `/api/projects/generate-steps` | Protected | LLM step generation (Claude) |
-
-**Known issues:**
-- No request body validation (Zod or similar)
-- No rate limiting on auth endpoints
-- CORS accepts any origin with credentials
 
 ## Constraints
+- **No breaking changes** to existing functionality — all current journal CRUD, auto-save, and project features must continue working
+- **No breaking changes** to existing API contracts — existing endpoints keep their current request/response shapes. New fields are additive only.
+- **Idempotent migrations** — new SQL must follow existing `IF NOT EXISTS` / `IF NOT EXISTS` patterns per CLAUDE.md
+- **Backward-compatible data** — legacy entries without slugs or published_at must still work in the authoring interface
+- **Minimal new dependencies** — only add what's necessary for markdown rendering in the read-only view
+- **Test coverage** — all new endpoints and components need tests
 
-- All PRDs must have test coverage associated with the functionality of the PRD. This can include unit tests and/or browser tests via Playwright.
-- All database migrations must be idempotent (see CLAUDE.md for required patterns).
-- Changes must not break the existing CI/CD deploy pipeline.
-- Follow the "fail loudly" principle — no silent failures, no swallowed errors.
-- Preserve backwards compatibility with existing production data.
-- Use Bun's built-in test runner (`bun test`) for unit tests. Add Playwright only if E2E tests are needed.
 
-## Open Questions
+## Decisions
 
-- ~~Is this a single-user application?~~ **Decided:** Adding user_id FKs — treating as multi-user capable.
-- ~~Which cleanup areas should be prioritized?~~ **Decided:** API validation, CORS lockdown, user ownership, dead table removal.
-- ~~Should the dead metrics tables be wired up or dropped?~~ **Decided:** Drop them.
-- ~~What is the production domain for CORS lockdown?~~ **Decided:** `jamescq.com` (from vite.config.ts).
-- ~~What test framework preference?~~ **Decided:** `bun test` for unit tests, Playwright for E2E if needed.
-- ~~Is the Anthropic/Claude integration in scope?~~ **Decided:** Yes — extract hardcoded model name to env var, add error handling.
+1. **Blog landing page** — simple feed of post cards only. No hero section or about blurb. Can add later if desired.
+2. **Pagination** — "Load More" button.
+3. **URL structure** — `/blog/:slug` for individual posts.
+4. **Old routes** — no redirects needed. `/` becomes blog feed, `/journal` stays as the author list. No concern about breaking links.
+5. **Reading time** — calculated on the fly from word count (client-side). Not stored.
+
 
 ## Reference
 
-- `CLAUDE.md` — Project conventions, migration patterns, "fail loudly" philosophy
-- `oasis-api/src/index.ts` — All API routes and middleware (~643 lines)
-- `oasis-api/src/auth.ts` — Better Auth configuration
-- `oasis-web/src/main.tsx` — Frontend routing setup
-- `scripts/db/init/` — All 5 migration files (01-init through 05-auth)
-- `.github/workflows/deploy.yml` — CI/CD pipeline (build → deploy → health check)
-- `docker-compose.yml` / `docker-compose.prod.yml` — Dev and prod orchestration
+Target aesthetic: a clean, minimal blog like a simple Medium or Bear Blog. Content-first, generous whitespace, readable typography. No sidebar, no widgets — just posts.
