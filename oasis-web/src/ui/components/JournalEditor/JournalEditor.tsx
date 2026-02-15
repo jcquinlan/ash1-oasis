@@ -16,14 +16,17 @@ export interface JournalEntry {
   title: string
   content: string
   is_public: boolean
+  slug?: string | null
+  excerpt?: string | null
+  published_at?: string | null
   created_at: string
   updated_at: string
 }
 
 export interface JournalEditorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSubmit' | 'onChange'> {
   entry?: JournalEntry | null
-  onSave: (data: { title: string; content: string; is_public: boolean }) => void
-  onChange?: (data: { title: string; content: string }) => void
+  onSave: (data: { title: string; content: string; is_public: boolean; slug?: string; excerpt?: string }) => void
+  onChange?: (data: { title: string; content: string; slug?: string; excerpt?: string }) => void
   onDelete?: () => void
   onCancel: () => void
   saving?: boolean
@@ -94,12 +97,27 @@ function FormatToolbar({ editor }: { editor: Editor }) {
   )
 }
 
+function clientSlugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
   ({ entry, onSave, onChange, onDelete, onCancel, saving = false, autoSaveStatus = 'idle', className, ...props }, ref) => {
     const [title, setTitle] = useState('')
     const [isPublic, setIsPublic] = useState(false)
+    const [slug, setSlug] = useState('')
+    const [excerpt, setExcerpt] = useState('')
+    const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
     const contentRef = useRef('')
     const titleRef = useRef('')
+    const slugRef = useRef('')
+    const excerptRef = useRef('')
     const onChangeRef = useRef(onChange)
     const isInitializingRef = useRef(false)
     const { theme, toggleTheme } = useTheme()
@@ -133,7 +151,7 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
         const md = (editor.storage as Record<string, any>).markdown
         contentRef.current = md.getMarkdown()
         if (!isInitializingRef.current) {
-          onChangeRef.current?.({ title: titleRef.current, content: contentRef.current })
+          onChangeRef.current?.({ title: titleRef.current, content: contentRef.current, slug: slugRef.current, excerpt: excerptRef.current })
         }
       },
     })
@@ -144,13 +162,23 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
       if (entry) {
         setTitle(entry.title)
         setIsPublic(entry.is_public)
+        setSlug(entry.slug || '')
+        setExcerpt(entry.excerpt || '')
+        setSlugManuallyEdited(!!entry.slug)
         titleRef.current = entry.title
+        slugRef.current = entry.slug || ''
+        excerptRef.current = entry.excerpt || ''
         editor.commands.setContent(entry.content)
         contentRef.current = entry.content
       } else {
         setTitle('')
         setIsPublic(false)
+        setSlug('')
+        setExcerpt('')
+        setSlugManuallyEdited(false)
         titleRef.current = ''
+        slugRef.current = ''
+        excerptRef.current = ''
         editor.commands.setContent('')
         contentRef.current = ''
       }
@@ -163,13 +191,39 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
       const newTitle = e.target.value
       setTitle(newTitle)
       titleRef.current = newTitle
-      onChangeRef.current?.({ title: newTitle, content: contentRef.current })
+      if (!slugManuallyEdited) {
+        const autoSlug = clientSlugify(newTitle)
+        setSlug(autoSlug)
+        slugRef.current = autoSlug
+      }
+      onChangeRef.current?.({ title: newTitle, content: contentRef.current, slug: slugRef.current, excerpt: excerptRef.current })
+    }
+
+    const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newSlug = e.target.value
+      setSlug(newSlug)
+      slugRef.current = newSlug
+      setSlugManuallyEdited(true)
+      onChangeRef.current?.({ title: titleRef.current, content: contentRef.current, slug: newSlug, excerpt: excerptRef.current })
+    }
+
+    const handleExcerptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newExcerpt = e.target.value
+      setExcerpt(newExcerpt)
+      excerptRef.current = newExcerpt
+      onChangeRef.current?.({ title: titleRef.current, content: contentRef.current, slug: slugRef.current, excerpt: newExcerpt })
     }
 
     const handleSave = () => {
       const content = contentRef.current.trim()
       if (title.trim() && content) {
-        onSave({ title: title.trim(), content, is_public: isPublic })
+        onSave({
+          title: title.trim(),
+          content,
+          is_public: isPublic,
+          slug: slug.trim() || undefined,
+          excerpt: excerpt.trim() || undefined,
+        })
       }
     }
 
@@ -244,6 +298,28 @@ export const JournalEditor = forwardRef<HTMLDivElement, JournalEditorProps>(
             className={styles.titleInput}
             autoFocus={!entry}
           />
+
+          {isPublic && (
+            <div className={styles.blogFields}>
+              <div className={styles.slugField}>
+                <span className={styles.slugPrefix}>/blog/</span>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={handleSlugChange}
+                  placeholder="post-slug"
+                  className={styles.slugInput}
+                />
+              </div>
+              <textarea
+                value={excerpt}
+                onChange={handleExcerptChange}
+                placeholder="Write a short excerpt for the blog feed (optional)"
+                className={styles.excerptInput}
+                rows={2}
+              />
+            </div>
+          )}
 
           {editor && <FormatToolbar editor={editor} />}
 
