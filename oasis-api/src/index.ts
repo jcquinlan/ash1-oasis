@@ -4,6 +4,17 @@ import { createMiddleware } from 'hono/factory'
 import postgres from 'postgres'
 import Anthropic from '@anthropic-ai/sdk'
 import { auth } from './auth'
+import {
+  CreateJournalSchema,
+  UpdateJournalSchema,
+  CreateProjectSchema,
+  UpdateProjectSchema,
+  AddStepsSchema,
+  UpdateStepSchema,
+  ReorderStepsSchema,
+  GenerateStepsSchema,
+  parseBody,
+} from './schemas'
 
 // ─── Typed Hono app with session variables ─────────────────────────────────
 type SessionUser = typeof auth.$Infer.Session.user
@@ -196,16 +207,16 @@ app.get('/api/journal/:id', async (c) => {
 })
 
 app.post('/api/journal', requireAuth, async (c) => {
-  const body = await c.req.json()
-  const { title, content, is_public } = body as { title: string; content: string; is_public?: boolean }
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
-  if (!title || !content) {
-    return c.json({ error: 'Title and content are required' }, 400)
-  }
+  const parsed = parseBody(CreateJournalSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, content, is_public } = parsed.data
 
   const result = await sql`
     INSERT INTO journal.entries (title, content, is_public)
-    VALUES (${title}, ${content}, ${is_public ?? false})
+    VALUES (${title}, ${content}, ${is_public})
     RETURNING id, title, content, is_public, created_at, updated_at
   `
 
@@ -214,12 +225,13 @@ app.post('/api/journal', requireAuth, async (c) => {
 
 app.put('/api/journal/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
-  const body = await c.req.json()
-  const { title, content, is_public } = body as { title: string; content: string; is_public?: boolean }
 
-  if (!title || !content) {
-    return c.json({ error: 'Title and content are required' }, 400)
-  }
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+
+  const parsed = parseBody(UpdateJournalSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, content, is_public } = parsed.data
 
   const result = await sql`
     UPDATE journal.entries
@@ -260,12 +272,12 @@ app.post('/api/projects/generate-steps', requireAuth, async (c) => {
     return c.json({ error: 'ANTHROPIC_API_KEY not configured' }, 503)
   }
 
-  const body = await c.req.json()
-  const { title, description } = body as { title: string; description?: string }
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
-  if (!title) {
-    return c.json({ error: 'Title is required' }, 400)
-  }
+  const parsed = parseBody(GenerateStepsSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, description } = parsed.data
 
   const prompt = `You are a decisive, opinionated project planner. Someone wants to accomplish a goal and you need to build them a SPECIFIC, CONCRETE plan — not a vague roadmap.
 
@@ -418,17 +430,12 @@ async function insertStepsTree(
 
 // Create project
 app.post('/api/projects', requireAuth, async (c) => {
-  const body = await c.req.json()
-  const { title, description, meta, steps } = body as {
-    title: string
-    description?: string
-    meta?: Record<string, unknown>
-    steps?: StepInput[]
-  }
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
-  if (!title) {
-    return c.json({ error: 'Title is required' }, 400)
-  }
+  const parsed = parseBody(CreateProjectSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, description, meta, steps } = parsed.data
 
   const result = await sql`
     INSERT INTO projects.projects (title, description, meta)
@@ -449,24 +456,13 @@ app.post('/api/projects', requireAuth, async (c) => {
 // Update project
 app.put('/api/projects/:id', requireAuth, async (c) => {
   const id = parseInt(c.req.param('id'))
-  const body = await c.req.json()
-  const { title, description, status, meta } = body as {
-    title?: string
-    description?: string
-    status?: string
-    meta?: Record<string, unknown>
-  }
 
-  // Build dynamic update — only set fields that were provided
-  const updates: Record<string, unknown> = {}
-  if (title !== undefined) updates.title = title
-  if (description !== undefined) updates.description = description
-  if (status !== undefined) updates.status = status
-  if (meta !== undefined) updates.meta = JSON.stringify(meta)
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
-  if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'No fields to update' }, 400)
-  }
+  const parsed = parseBody(UpdateProjectSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, description, status, meta } = parsed.data
 
   // Since postgres lib doesn't have a clean dynamic SET, build per-field
   const result = await sql`
@@ -512,10 +508,15 @@ app.delete('/api/projects/:id', requireAuth, async (c) => {
 // Add step(s) to a project
 app.post('/api/projects/:id/steps', requireAuth, async (c) => {
   const projectId = parseInt(c.req.param('id'))
-  const body = await c.req.json()
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+
+  const parsed = parseBody(AddStepsSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
 
   // Accept single step or array
-  const stepsInput = Array.isArray(body) ? body : [body]
+  const stepsInput = Array.isArray(parsed.data) ? parsed.data : [parsed.data]
 
   // Determine parent_id (all steps in a batch share the same parent)
   const parentId = stepsInput[0]?.parent_id ?? null
@@ -550,18 +551,16 @@ app.post('/api/projects/:id/steps', requireAuth, async (c) => {
 // Update a step
 app.put('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
   const stepId = parseInt(c.req.param('stepId'))
-  const body = await c.req.json()
-  const { title, description, status, sort_order, parent_id, meta } = body as {
-    title?: string
-    description?: string
-    status?: string
-    sort_order?: number
-    parent_id?: number | null
-    meta?: Record<string, unknown>
-  }
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+
+  const parsed = parseBody(UpdateStepSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { title, description, status, sort_order, parent_id, meta } = parsed.data
 
   // parent_id needs special handling: explicit null means "make root-level"
-  const hasParentId = 'parent_id' in body
+  const hasParentId = 'parent_id' in parsed.data
   const result = hasParentId
     ? await sql`
         UPDATE projects.steps SET
@@ -615,12 +614,12 @@ app.delete('/api/projects/:id/steps/:stepId', requireAuth, async (c) => {
 
 // Reorder steps — accepts array of { id, sort_order }
 app.put('/api/projects/:id/steps', requireAuth, async (c) => {
-  const body = await c.req.json()
-  const updates = body as Array<{ id: number; sort_order: number }>
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
 
-  if (!Array.isArray(updates)) {
-    return c.json({ error: 'Expected array of { id, sort_order }' }, 400)
-  }
+  const parsed = parseBody(ReorderStepsSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const updates = parsed.data
 
   await sql.begin(async (tx) => {
     for (const u of updates) {
