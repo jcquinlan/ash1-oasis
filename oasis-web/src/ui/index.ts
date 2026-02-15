@@ -40,3 +40,6 @@ export type { ProjectDetailProps } from './components/ProjectDetail/ProjectDetai
 
 export { ProjectForm } from './components/ProjectForm/ProjectForm'
 export type { ProjectFormProps, ProjectFormData } from './components/ProjectForm/ProjectForm'
+
+export { PostCard } from './components/PostCard/PostCard'
+export type { PostCardProps } from './components/PostCard/PostCard'
