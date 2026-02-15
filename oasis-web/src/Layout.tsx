@@ -26,10 +26,16 @@ export default function Layout() {
               className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
               end
             >
-              Journal
+              Blog
             </NavLink>
             {session && (
               <>
+                <NavLink
+                  to="/journal"
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+                >
+                  Journal
+                </NavLink>
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}

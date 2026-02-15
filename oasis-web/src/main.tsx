@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './Layout'
 import RequireAuth from './components/RequireAuth'
+import BlogFeedPage from './pages/BlogFeedPage'
+import BlogPostPage from './pages/BlogPostPage'
 import DashboardPage from './pages/DashboardPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
@@ -18,9 +20,10 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<JournalPage />} />
+          <Route index element={<BlogFeedPage />} />
+          <Route path="blog/:slug" element={<BlogPostPage />} />
           <Route path="login" element={<LoginPage />} />
-          <Route path="journal" element={<JournalPage />} />
+          <Route path="journal" element={<RequireAuth><JournalPage /></RequireAuth>} />
           <Route path="dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
           <Route path="projects/new" element={<RequireAuth><ProjectNewPage /></RequireAuth>} />
