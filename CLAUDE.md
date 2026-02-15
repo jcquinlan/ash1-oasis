@@ -119,3 +119,13 @@ This monorepo supports hands-on learning of:
 - **Backup strategies** and disaster recovery procedures
 
 As new services are added, each should follow established patterns for configuration management, health checks, logging, and deployment automation.
+
+## Agent Harness
+
+This project includes an agent harness for autonomous PRD-driven work.
+
+- **Activate**: `/harness "description of work to do"`
+- **Normal mode**: When `/harness` is not invoked, Claude works normally with no harness constraints
+- **Requires**: `jq` must be installed on the system
+
+The harness decomposes work into small PRDs with testable acceptance criteria and keeps Claude working until all PRDs are complete. See `.claude/skills/harness/SKILL.md` for details.

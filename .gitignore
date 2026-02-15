@@ -36,3 +36,6 @@ yarn-error.log*
 bun.lockb
 
 scripts/seed-admin.sh
+
+# Harness runtime state
+.harness/
