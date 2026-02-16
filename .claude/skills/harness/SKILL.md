@@ -29,7 +29,21 @@ Create the `.harness/` directory if it doesn't exist:
 mkdir -p .harness
 ```
 
-### Step 2: Delegate to Planner
+### Step 2: Create a Feature Branch
+
+Always perform harness work on a new branch off of `master`. Generate a short, kebab-case branch name from the work description (e.g., `harness/add-user-auth`, `harness/fix-dashboard-metrics`).
+
+```bash
+git checkout master
+git pull --ff-only origin master 2>/dev/null || true
+git checkout -b harness/<descriptive-slug>
+```
+
+- The branch name **must** start with `harness/`
+- Keep the slug to 3-5 words max
+- If the branch already exists (e.g., re-running the harness for the same task), check it out instead of creating a new one
+
+### Step 3: Delegate to Planner
 
 Launch the planner subagent to decompose the work into PRDs:
 
@@ -47,7 +61,7 @@ Work description: $ARGUMENTS
 Working directory: <current working directory>
 ```
 
-### Step 3: Review the Plan
+### Step 4: Review the Plan
 
 After the planner completes, read `.harness/progress.json` and present a summary to the user:
 
@@ -55,7 +69,7 @@ After the planner completes, read `.harness/progress.json` and present a summary
 - Show the total count: "X new PRDs added (Y previously completed)"
 - Do NOT ask for approval — begin execution immediately
 
-### Step 4: Execute PRDs
+### Step 5: Execute PRDs
 
 Process PRDs in order. For each PRD with status `pending`:
 
@@ -75,7 +89,7 @@ Process PRDs in order. For each PRD with status `pending`:
    - Otherwise: try to fix and re-run (stay on same PRD)
 8. **Move to the next pending PRD**
 
-### Step 5: Updating progress.json
+### Step 6: Updating progress.json
 
 When updating `.harness/progress.json`, always use this pattern to ensure atomic writes:
 
@@ -100,14 +114,14 @@ jq '(.prds[] | select(.id == "prd-001")).status = "done"' .harness/progress.json
 jq '.log += [{"timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'", "event": "prd_done", "prd_id": "prd-001"}]' .harness/progress.json > .harness/progress.tmp && mv .harness/progress.tmp .harness/progress.json
 ```
 
-### Step 6: Circuit Breakers
+### Step 7: Circuit Breakers
 
 Before starting each PRD, check:
 
 - **Global iteration limit**: If `.iteration >= .config.max_total_iterations`, stop immediately and output a summary
 - **Per-PRD attempt limit**: If a PRD's `.attempts >= .config.max_prd_attempts`, mark it `failed` and move on
 
-### Step 7: Completion
+### Step 8: Completion
 
 When no more `pending` or `in_progress` PRDs remain, output a final summary:
 
