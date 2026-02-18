@@ -1,0 +1,14 @@
+FROM oven/bun:latest
+
+WORKDIR /app
+
+COPY package.json bun.lockb* ./
+RUN bun install
+
+# Source files will be mounted as volume for hot reload
+COPY . .
+
+ENV MCP_PORT=3002
+EXPOSE 3002
+
+CMD ["bun", "run", "dev"]

@@ -23,6 +23,7 @@ env:
   REGISTRY: ghcr.io
   WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/oasis-web
   API_IMAGE: ghcr.io/${{ github.repository_owner }}/oasis-api
+  MCP_IMAGE: ghcr.io/${{ github.repository_owner }}/oasis-mcp
 
 jobs:
   # ===========================================================================
@@ -39,6 +40,8 @@ jobs:
             image: oasis-web
           - context: ./oasis-api
             image: oasis-api
+          - context: ./oasis-mcp
+            image: oasis-mcp
 
     steps:
       # -----------------------------------------------------------------------
@@ -214,5 +217,8 @@ jobs:
 
             # Check API health endpoint
             curl -sf http://localhost:8082/api/health > /dev/null && echo "✓ API is up" || exit 1
+
+            # Check MCP server health endpoint
+            curl -sf http://localhost:8083/health > /dev/null && echo "✓ MCP server is up" || echo "⚠ MCP server not responding (non-fatal)"
 
             echo "Deployment successful!"

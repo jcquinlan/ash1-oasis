@@ -1,0 +1,17 @@
+{
+  "name": "oasis-mcp",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "deploy": "bun build --target=bun --outfile=./dest/server.js ./src/index.ts && bun run ./dest/server.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "fetch-to-node": "^2.1.0",
+    "hono": "^4.11.4",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
