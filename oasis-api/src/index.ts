@@ -68,6 +68,20 @@ app.on(['POST', 'GET'], '/api/auth/*', (c) => {
 
 // ─── Session middleware — populates user/session on every request ────────────
 app.use('*', async (c, next) => {
+  // Internal service auth: oasis-mcp authenticates with X-Internal-Key
+  const internalKey = c.req.header('X-Internal-Key')
+  if (internalKey && process.env.INTERNAL_API_KEY) {
+    if (internalKey === process.env.INTERNAL_API_KEY) {
+      const adminUser = await sql`SELECT id, name, email FROM auth."user" LIMIT 1`
+      if (adminUser.length > 0) {
+        c.set('user', adminUser[0] as any)
+        c.set('session', { id: 'internal-service' } as any)
+        return next()
+      }
+    }
+    return c.json({ error: 'Invalid internal API key' }, 401)
+  }
+
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   })

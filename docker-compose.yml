@@ -71,8 +71,26 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       oasis:
         condition: service_healthy
       oasis-migrations:
         condition: service_completed_successfully
+
+  oasis-mcp:
+    build:
+      context: ./oasis-mcp
+      dockerfile: Dockerfile.dev
+    ports:
+      - "127.0.0.1:3002:3002"
+    volumes:
+      - ./oasis-mcp/src:/app/src:ro
+    environment:
+      - NODE_ENV=development
+      - MCP_PORT=3002
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - OASIS_API_URL=http://oasis-api:3001
+    depends_on:
+      - oasis-api

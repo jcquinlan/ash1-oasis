@@ -104,6 +104,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       oasis:
         condition: service_healthy
@@ -111,6 +112,32 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # MCP Server
+  # ---------------------------------------------------------------------------
+  # Exposes homelab data to Claude Desktop / Claude Code via MCP tools.
+  # Calls oasis-api internally — no direct DB or Docker socket access.
+  oasis-mcp:
+    container_name: oasis-mcp
+    image: ghcr.io/jcquinlan/oasis-mcp:${IMAGE_TAG:-latest}
+    ports:
+      - "127.0.0.1:8083:3002"
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - MCP_PORT=3002
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - OASIS_API_URL=http://oasis-api:3001
+    depends_on:
+      - oasis-api
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3002/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 30s
       timeout: 10s
       retries: 3
