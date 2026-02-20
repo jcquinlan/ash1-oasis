@@ -13,6 +13,7 @@ import ProjectEditPage from './pages/ProjectEditPage'
 import JournalPage from './pages/JournalPage'
 import JournalEditPage from './pages/JournalEditPage'
 import LoginPage from './pages/LoginPage'
+import OnboardingPage from './pages/OnboardingPage'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<BlogFeedPage />} />
           <Route path="blog/:slug" element={<BlogPostPage />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="welcome" element={<OnboardingPage />} />
           <Route path="journal" element={<RequireAuth><JournalPage /></RequireAuth>} />
           <Route path="dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />

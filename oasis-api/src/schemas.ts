@@ -98,6 +98,21 @@ export const GenerateStepsSchema = z.object({
   description: z.string().optional(),
 })
 
+// ─── Referral Feedback Schema ────────────────────────────────────────────────
+
+export const ReferralFeedbackSchema = z.object({
+  source: z.enum([
+    'google',
+    'social_media',
+    'friend_or_colleague',
+    'blog_or_article',
+    'github',
+    'other',
+  ]),
+  details: z.string().max(500).optional(),
+  email: z.string().email().optional(),
+})
+
 // ─── Parse helper ────────────────────────────────────────────────────────────
 
 export function parseBody<T>(

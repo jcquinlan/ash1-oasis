@@ -13,6 +13,7 @@ import {
   UpdateStepSchema,
   ReorderStepsSchema,
   GenerateStepsSchema,
+  ReferralFeedbackSchema,
   parseBody,
   slugify,
 } from './schemas'
@@ -182,6 +183,74 @@ app.get('/api/system', requireAuth, async (c) => {
 })
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
+
+// ─── HubSpot referral feedback ──────────────────────────────────────────────
+
+const HUBSPOT_SOURCE_LABELS: Record<string, string> = {
+  google: 'Google Search',
+  social_media: 'Social Media',
+  friend_or_colleague: 'Friend or Colleague',
+  blog_or_article: 'Blog or Article',
+  github: 'GitHub',
+  other: 'Other',
+}
+
+app.post('/api/feedback/referral', async (c) => {
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+
+  const parsed = parseBody(ReferralFeedbackSchema, body)
+  if (!parsed.success) return c.json({ error: parsed.error }, 400)
+  const { source, details, email } = parsed.data
+
+  const portalId = process.env.HUBSPOT_PORTAL_ID
+  const formGuid = process.env.HUBSPOT_FORM_GUID
+
+  if (!portalId || !formGuid) {
+    console.error('HubSpot integration not configured: HUBSPOT_PORTAL_ID and HUBSPOT_FORM_GUID are required')
+    return c.json({ error: 'Feedback service not configured' }, 503)
+  }
+
+  const fields = [
+    { objectTypeId: '0-1', name: 'how_did_you_hear_about_us', value: HUBSPOT_SOURCE_LABELS[source] || source },
+  ]
+
+  if (details) {
+    fields.push({ objectTypeId: '0-1', name: 'how_did_you_hear_about_us_details', value: details })
+  }
+
+  if (email) {
+    fields.push({ objectTypeId: '0-1', name: 'email', value: email })
+  }
+
+  // Also attach logged-in user's email if available
+  const sessionUser = c.get('user')
+  if (sessionUser?.email && !email) {
+    fields.push({ objectTypeId: '0-1', name: 'email', value: sessionUser.email })
+  }
+
+  const hubspotUrl = `https://api.hsforms.com/submissions/v3/integration/submit/${portalId}/${formGuid}`
+
+  try {
+    const response = await fetch(hubspotUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`HubSpot submission failed (${response.status}): ${errorText}`)
+      return c.json({ error: 'Failed to submit feedback' }, 502)
+    }
+
+    return c.json({ success: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error(`HubSpot request failed: ${msg}`)
+    return c.json({ error: 'Failed to submit feedback' }, 502)
+  }
+})
 
 // ─── Journal CRUD — reads are visibility-aware, writes require auth ─────────
 
